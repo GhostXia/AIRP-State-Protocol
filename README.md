@@ -1,5 +1,7 @@
 # AIRP-State-Protocol
 
+> **通用优先，不绑定任何项目。** 本项目始终以「通用」为核心理念——不捆绑任何特定项目或厂商，任何第三方都能便捷接入、自由用于任何用途。
+
 **AIRP 生态的 UI 项目**（Tauri + Vue 显示层），同时承载它所渲染的**状态/渲染协议**。UI 通过一个**开放的 Widget Registry** 渲染由 Agent 产出的声明式 **Blueprint**，让 Agent 能驱动一个**长期存在、可扩展、低 Token** 的界面。
 
 > 一仓两面：① Tauri+Vue 应用（显示层）；② 它与 AgentBus（如 AIRP-Gateway）之间，与具体 Agent 无关的 State Protocol 契约（Schema + Rust/TS 绑定 + widget manifest）。
