@@ -2,6 +2,7 @@
   "name": "@airp/state-protocol",
   "version": "0.1.0",
   "description": "AIRP State Protocol — TypeScript wire types for an AIRP UI talking to an AgentBus (e.g. AIRP-Gateway).",
+  "author": "GhostXia",
   "license": "MIT OR Apache-2.0",
   "repository": "https://github.com/GhostXia/AIRP-State-Protocol",
   "type": "module",

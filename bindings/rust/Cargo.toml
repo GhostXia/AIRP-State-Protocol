@@ -2,6 +2,7 @@
 name = "airp-state-protocol"
 version = "0.1.0"
 edition = "2021"
+authors = ["GhostXia"]
 license = "MIT OR Apache-2.0"
 description = "AIRP State Protocol — wire types and the AgentBus trait. The contract between an AIRP UI and an AgentBus implementation (e.g. AIRP-Gateway)."
 repository = "https://github.com/GhostXia/AIRP-State-Protocol"
