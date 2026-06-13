@@ -1,41 +1,54 @@
 # AIRP-State-Protocol
 
-**AIRP 生态的状态/渲染协议层。** 定义 AIRP UI（显示层）与 AgentBus 实现（如 AIRP-Gateway）之间，与具体 Agent、UI 框架都无关的契约——让 Agent 能驱动一个**长期存在、可扩展、低 Token** 的界面。
+**AIRP 生态的 UI 项目**（Tauri + Vue 显示层），同时承载它所渲染的**状态/渲染协议**。UI 通过一个**开放的 Widget Registry** 渲染由 Agent 产出的声明式 **Blueprint**，让 Agent 能驱动一个**长期存在、可扩展、低 Token** 的界面。
 
-> 这是 AIRP 全家桶里「最稳定的资产」：MCP 解决「Agent 怎么调用工具」，本协议解决「Agent 怎么驱动一个界面」。
+> 一仓两面：① Tauri+Vue 应用（显示层）；② 它与 AgentBus（如 AIRP-Gateway）之间，与具体 Agent 无关的 State Protocol 契约（Schema + Rust/TS 绑定 + widget manifest）。
 
 ## 生态定位
 
 ```
-AIRP-UI         (显示, Tauri + Vue)         ← Widget Registry 渲染 Blueprint
-   ↓  本协议 (Tauri IPC / HTTP / SSE / WS)
-AIRP-Gateway    (状态与协议, AgentBus 实现)   ← 热：会话缓存 + patch 差分
-   ↓  MCP
-AIRP-MCP        (工具与数据)                  ← 冷：落盘真相
-   ↓
-Agent Runtime   (推理)
+AIRP-State-Protocol  (本仓库, Tauri + Vue UI + 协议契约)  ← Widget Registry 渲染 Blueprint
+   ↕  State Protocol (Tauri IPC / HTTP / SSE / WS)
+AIRP-Gateway         (AgentBus 实现)                      ← 热：会话缓存 + patch 差分
+   ↕  MCP
+AIRP-MCP             (工具与数据)                          ← 冷：落盘真相
+   ↕
+Agent Runtime        (推理)
 ```
 
 | 仓库 | 角色 |
 |------|------|
 | [AIRP-MCP-Server](https://github.com/GhostXia/AIRP-MCP-Server) | 角色扮演数据管理（纯 MCP，不推理） |
 | [AIRP-Gateway](https://github.com/GhostXia/AIRP-Gateway) | 协议桥 / AgentBus 默认实现 |
-| **AIRP-State-Protocol**（本仓库） | 两者之间的契约：Schema + Rust/TS 绑定 + 规范 |
+| **AIRP-State-Protocol**（本仓库） | UI 应用（Tauri+Vue）+ State Protocol 契约（Schema + Rust/TS 绑定 + 规范） |
 
 ## 仓库结构
 
 ```
-schema/airp-state-protocol.schema.json   # 真相：JSON Schema (draft 2020-12)
-schema/widget-manifest.schema.json       # widget manifest 校验入口（开放扩展契约）
-bindings/rust/                            # Rust 类型 + AgentBus trait（给 Gateway / Tauri core）
-bindings/typescript/                      # TS 类型 + 类型守卫（给 Vue/React 前端）
-widgets/core/                             # 第一方 widget manifest（chat/memory/emotion/...）
-docs/spec/protocol.md                     # 规范 v1
-docs/widget-authoring.md                  # widget 作者指南（第三方接入）
-docs/AIRP-架构与状态协议-背景整理.md        # 决策与性能契约背景
-examples/                                 # 可被 schema 校验的 Envelope 示例
-CONTRIBUTING.md                           # 贡献指南（含「如何加 widget」）
-.github/workflows/ci.yml                  # 云端验证（编译/类型/schema 均在 CI 跑）
+# —— UI 应用（Tauri + Vue）——
+index.html  vite.config.ts  tsconfig.json  package.json
+src/
+  main.ts  App.vue                         # 挂载；订阅 AgentBus，分发 Blueprint/state
+  protocol/types.ts                        # 复用 bindings/typescript 的协议类型
+  protocol/bus.ts                          # AgentBus 接口 + MockBus（无后端可跑）
+  state/store.ts                           # 按 scope 的响应式状态 + RFC6902 patch
+  registry/                                # Widget Registry：type → 组件加载器
+  widgets/                                 # 第一方 widget 组件（ChatWidget/EmotionWidget）
+  components/                              # BlueprintRenderer + WidgetHost
+src-tauri/                                 # Tauri 桌面壳（Rust，暂不打包 exe）
+
+# —— State Protocol 契约 ——
+schema/airp-state-protocol.schema.json     # 真相：JSON Schema (draft 2020-12)
+schema/widget-manifest.schema.json         # widget manifest 校验入口（开放扩展契约）
+bindings/rust/                             # Rust 类型 + AgentBus trait（给 Gateway）
+bindings/typescript/                       # TS 类型 + 类型守卫（UI 复用）
+widgets/core/                              # 第一方 widget manifest（chat/memory/emotion/...）
+docs/spec/protocol.md                      # 规范 v1
+docs/widget-authoring.md                   # widget 作者指南（第三方接入）
+docs/AIRP-架构与状态协议-背景整理.md         # 决策与性能契约背景
+examples/                                  # 可被 schema 校验的 Envelope 示例
+CONTRIBUTING.md                            # 贡献指南（含「如何加 widget」）
+.github/workflows/ci.yml                   # 云端验证（rust/ts/schema/ui 均在 CI 跑）
 ```
 
 ## 核心概念（速览）
