@@ -6,6 +6,11 @@ name: Release exe (manual)
 on:
   workflow_dispatch:
 
+# Opt the bundled JS actions into the Node.js 24 runtime ahead of GitHub's
+# 2026-06-16 default switch (silences the Node.js 20 deprecation warning).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-windows-exe:
     name: Build airp-protocol.exe (x86_64-pc-windows-gnu)
