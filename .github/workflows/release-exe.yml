@@ -1,0 +1,35 @@
+name: Release exe (manual)
+
+# Manual trigger only. Cross-compiles the `airp-protocol` validator CLI into a
+# Windows .exe using the x86_64-pc-windows-gnu target (same target family as
+# AIRP-Gateway) and uploads it as a build artifact.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows-exe:
+    name: Build airp-protocol.exe (x86_64-pc-windows-gnu)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install MinGW-w64 linker
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Build release exe
+        run: cargo build --release --target x86_64-pc-windows-gnu --bin airp-protocol
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: airp-protocol-windows-x64
+          # path is relative to the repository root, not the job working-directory
+          path: bindings/rust/target/x86_64-pc-windows-gnu/release/airp-protocol.exe
+          if-no-files-found: error
