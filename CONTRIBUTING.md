@@ -15,7 +15,7 @@ Thanks for contributing. This repo is the **contract layer** of the AIRP ecosyst
 | `rust` | `cargo build --all-targets` + `cargo test` |
 | `typescript` | `tsc --noEmit` (protocol binding) |
 | `schema` | `ajv` validates `examples/*.json` and `widgets/**/*.json` |
-| `ui` | `npm install` + `npm run build` (`vue-tsc --noEmit` + `vite build`) |
+| `ui` | `npm install` + `npm run build` (`vue-tsc` + `vite build`) + `npm test` (vitest) |
 
 ## Running the UI
 

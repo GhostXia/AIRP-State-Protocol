@@ -69,7 +69,7 @@ jobs:
           -d "widgets/**/*.json"
 
   ui:
-    name: UI (typecheck + build)
+    name: UI (typecheck + build + test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,3 +78,4 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+      - run: npm test
