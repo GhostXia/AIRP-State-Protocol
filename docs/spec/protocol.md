@@ -74,15 +74,32 @@ WidgetInstance { id, type(注册表 key), props?, state?(默认=id), capabilitie
   "patch": [ { "op": "replace", "path": "/emotion", "value": 80 } ] }
 ```
 
-## 5. Widget Registry
+## 5. Widget Registry（开放扩展）
 
-`WidgetDef`（不在信封内，供 Gateway/UI 注册表使用）：
+Widget 系统**对任何第三方开放**：任何人都能用自己的命名空间发布一个 widget manifest 接入本 UI，无需改协议核心。
+
+Manifest（不在信封内，供 Gateway/UI 注册表使用）：
 
 ```
-WidgetDef { type, version, title?, propsSchema?, stateSchema?, capabilities?[], intents?[] }
+WidgetDef {
+  type,            // 命名空间 id，如 "core.chat" / "acme.relationship-graph"（namespace.name）
+  version,         // semver
+  title,
+  description?,
+  propsSchema?,    // JSON Schema
+  stateSchema?,    // JSON Schema
+  capabilities?[], // 申请权限，Gateway 强制
+  intents?[],      // 可发出的 intent 名
+  entry?,          // { kind: builtin|esm, source? } UI 如何加载
+  author?, homepage?, license?
+}
 ```
 
-UI 端注册表按 `WidgetInstance.type` 动态装载组件；Agent 无需知道 Vue/React。
+规则：
+- **命名空间强制**：`type` 必须含 `.`（`namespace.name`），避免第三方冲突。`core.*` 保留给第一方。
+- 校验入口：`schema/widget-manifest.schema.json`（CI 自动校验 `widgets/**/*.json`）。
+- UI 端注册表按 `WidgetInstance.type` 找到 manifest 并装载组件；Agent / Gateway 无需知道 Vue/React。
+- 贡献流程见 [CONTRIBUTING.md](../../CONTRIBUTING.md) 与 [widget 作者指南](../widget-authoring.md)。
 
 ## 6. 权限（Capability）
 

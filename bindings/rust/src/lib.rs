@@ -216,27 +216,61 @@ pub struct WidgetInstance {
     pub capabilities: Option<Vec<Capability>>,
 }
 
-/// A widget definition as published in the registry.
+/// A widget manifest as published in the registry — the OPEN extension contract.
 ///
-/// Not part of the wire envelope; used by Gateway/UI registries.
+/// Not part of the wire envelope; used by Gateway/UI registries. Any third party
+/// can ship a widget by publishing a manifest under its own namespace (see the
+/// `type` field). Mirrors `schema/widget-manifest.schema.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WidgetDef {
+    /// Namespaced widget id, e.g. `"core.chat"` or `"acme.relationship-graph"`.
+    /// Must be `namespace.name`; the `core.*` namespace is reserved for first-party widgets.
     #[serde(rename = "type")]
     pub kind: String,
+    /// Semantic version.
     pub version: String,
+    pub title: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub title: Option<String>,
+    pub description: Option<String>,
     /// JSON Schema for this widget's props.
     #[serde(rename = "propsSchema", skip_serializing_if = "Option::is_none", default)]
     pub props_schema: Option<Value>,
     /// JSON Schema for this widget's state slice.
     #[serde(rename = "stateSchema", skip_serializing_if = "Option::is_none", default)]
     pub state_schema: Option<Value>,
+    /// Permissions this widget requests; enforced by the Gateway.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub capabilities: Option<Vec<Capability>>,
     /// Intent names this widget can emit.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub intents: Option<Vec<String>>,
+    /// How the UI's Widget Registry loads this widget.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub entry: Option<WidgetEntry>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub author: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub homepage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub license: Option<String>,
+}
+
+/// How the UI's Widget Registry loads a widget.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WidgetEntry {
+    pub kind: EntryKind,
+    /// For `EntryKind::Esm`: the module specifier or URL the UI imports.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub source: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EntryKind {
+    /// Bundled into the UI.
+    Builtin,
+    /// Loaded as an ES module from `source`.
+    Esm,
 }
 
 /// A permission a widget/agent requests; enforced by the Gateway.
