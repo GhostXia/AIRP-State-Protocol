@@ -3,6 +3,9 @@ name = "airp-ui"
 version = "0.1.0"
 description = "AIRP UI desktop shell"
 edition = "2021"
+authors = ["GhostXia"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/GhostXia/AIRP-State-Protocol"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

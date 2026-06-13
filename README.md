@@ -87,4 +87,7 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 
 ## License
 
-MIT OR Apache-2.0
+双协议授权，与 [AIRP-Gateway](https://github.com/GhostXia/AIRP-Gateway) 看齐：**MIT OR Apache-2.0**，使用者任选其一。
+
+- [LICENSE-MIT](LICENSE-MIT)
+- [LICENSE-APACHE](LICENSE-APACHE)
