@@ -36,13 +36,13 @@ Widgets are open to any third party. To register one:
    - `type` must be `namespace.name` (must contain a dot), e.g. `acme.relationship-graph`.
    - `core.*` is reserved for first-party widgets.
 2. Fill in the manifest per [`schema/widget-manifest.schema.json`](schema/widget-manifest.schema.json). See [`docs/widget-authoring.md`](docs/widget-authoring.md) for field-by-field guidance and the [`widgets/core/`](widgets/core) manifests as examples.
-3. Add the **component** that renders it:
-   - First-party: a `.vue` file under `src/widgets/`, registered in `src/registry/index.ts` under its `core.*` type. See `src/widgets/ChatWidget.vue` / `EmotionWidget.vue`.
-   - Third-party: ship the component as an ES module and register its namespaced type; it can be loaded via the manifest's `entry: { kind: "esm", source }`.
-   - The component gets `defineProps<{ instance: WidgetInstance; state: unknown }>()` and may `defineEmits<{ (e: "intent", name: string, params?: Json): void }>()`. Only manifest-declared capabilities are granted (Gateway-enforced).
-4. Open a PR. CI validates the manifest and builds the UI automatically.
+3. Add the **component** that renders it. You are not tied to Vue — two kinds:
+   - **module** (framework-agnostic, recommended for third parties): export a factory returning a `WidgetModule` (`mount(el, ctx)` / `unmount()`); build the DOM with any tech. Vanilla sample: `src/widgets/clock.module.ts`. Register with `registerModuleWidget(type, ...)`.
+   - **vue** (first-party): a `.vue` file under `src/widgets/` with `defineProps<{ instance; state }>()` + `defineEmits<{ (e:"intent", ...) }>()`. Register with `registerVueWidget(type, ...)`. Sample: `src/widgets/ChatWidget.vue`.
+   - First-party widgets register in `src/registry/index.ts`; third-party esm widgets are loaded via the manifest's `entry: { kind: "esm", source }`.
+4. Open a PR. CI validates the manifest and builds + tests the UI automatically.
 
-Declare only the `capabilities` your widget actually needs — the Gateway enforces them.
+Declare only the `capabilities` your widget needs — the host enforces them. **We expose the interface; we do not audit widget code.** See [`docs/SECURITY.md`](docs/SECURITY.md) for the responsibility boundary.
 
 ## Changing the protocol itself
 
