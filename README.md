@@ -7,7 +7,7 @@
 ## 生态定位
 
 ```
-AIRP-UI         (显示, Tauri + Vue/React)   ← Widget Registry 渲染 Blueprint
+AIRP-UI         (显示, Tauri + Vue)         ← Widget Registry 渲染 Blueprint
    ↓  本协议 (Tauri IPC / HTTP / SSE / WS)
 AIRP-Gateway    (状态与协议, AgentBus 实现)   ← 热：会话缓存 + patch 差分
    ↓  MCP
@@ -63,7 +63,7 @@ examples/                                 # 可被 schema 校验的 Envelope 示
 
 ## 状态
 
-`v0.1` 开发中。已定决策见背景文档 §5；仍开放问题见 §7（前端框架最终选型、首批 widget 清单、与 MCP 关系、capability 粒度）。
+`v0.1` 开发中。已定决策见背景文档 §5（前端框架 = **Vue**）；仍开放问题见 §7（首批 widget 清单、与 MCP 关系、capability 粒度）。
 
 ## License
 

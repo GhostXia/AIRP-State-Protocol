@@ -232,7 +232,7 @@ Agent Runtime   (推理)
 - **编码**：JSON；协议版本字段 `v`，当前 `1`。
 - **传输**：协议 transport 无关。参考实现 UI↔Core 用 Tauri IPC，Core↔Gateway 用本地 HTTP/SSE。
 - **状态分层**：Gateway 热（会话缓存 + diff）/ MCP 冷（落盘真相）。
-- **前端框架**：Vue 与 React 二选一（**待最终拍板**），但契约层与框架无关，不阻塞。
+- **前端框架**：**Vue（已确定，2026-06-13）**。理由：契约押注 widget 生态，Vue 生态/上手成本/可贡献者池足够；性能靠架构（虚拟化 + patch + 离线程）保证，与框架无关（见 §6）。契约层本就与框架无关，不受影响。
 
 ---
 
@@ -278,7 +278,7 @@ Agent Runtime   (推理)
 
 ## 7. 待决问题（仍开放）
 
-1. **前端框架最终拍板**：Vue 还是 React？（契约层不阻塞，但 AIRP-UI 仓库开工前需定）
+1. ~~**前端框架最终拍板**~~：已定 **Vue**（2026-06-13，见 §5.4）。
 2. **首批 Widget 清单**：先实现哪几个？候选 `chat / memory / emotion / inventory / quest / map / card`。
 3. **协议与 MCP 关系细化**：State Protocol 完全包在 MCP 之上，还是平行于 MCP 的独立通道？（影响 Gateway 内部 dispatch）
 4. **权限粒度**：capability 列表的最小集（如 `read:memory` / `write:memory` / `read:worldbook` / `call:tool`）。
