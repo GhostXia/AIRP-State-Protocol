@@ -26,11 +26,15 @@ Agent Runtime   (推理)
 
 ```
 schema/airp-state-protocol.schema.json   # 真相：JSON Schema (draft 2020-12)
+schema/widget-manifest.schema.json       # widget manifest 校验入口（开放扩展契约）
 bindings/rust/                            # Rust 类型 + AgentBus trait（给 Gateway / Tauri core）
 bindings/typescript/                      # TS 类型 + 类型守卫（给 Vue/React 前端）
+widgets/core/                             # 第一方 widget manifest（chat/memory/emotion/...）
 docs/spec/protocol.md                     # 规范 v1
+docs/widget-authoring.md                  # widget 作者指南（第三方接入）
 docs/AIRP-架构与状态协议-背景整理.md        # 决策与性能契约背景
 examples/                                 # 可被 schema 校验的 Envelope 示例
+CONTRIBUTING.md                           # 贡献指南（含「如何加 widget」）
 .github/workflows/ci.yml                  # 云端验证（编译/类型/schema 均在 CI 跑）
 ```
 
@@ -42,6 +46,7 @@ examples/                                 # 可被 schema 校验的 Envelope 示
 - **State/Patch**：状态以 RFC 6902 JSON Patch 增量同步，降低 Token。
 - **Capability**：widget/agent 声明、Gateway 强制的权限。
 - **AgentBus**：进程内 trait 契约；任何实现者可替换默认 Gateway。
+- **开放 Widget**：widget 系统对任何第三方开放——用自己的命名空间（`namespace.name`）发 manifest 即可接入，无需改协议核心。见 [widget 作者指南](docs/widget-authoring.md) 与 [CONTRIBUTING](CONTRIBUTING.md)。
 
 详见 [规范](docs/spec/protocol.md)。
 

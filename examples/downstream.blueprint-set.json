@@ -18,9 +18,9 @@
         ]
       },
       "widgets": [
-        { "id": "w-chat", "type": "chat", "props": { "title": "对话" }, "state": "session.chat" },
-        { "id": "w-emotion", "type": "emotion", "state": "w-emotion", "capabilities": ["read:state"] },
-        { "id": "w-inventory", "type": "inventory", "state": "w-inventory", "capabilities": ["read:state"] }
+        { "id": "w-chat", "type": "core.chat", "props": { "title": "对话" }, "state": "session.chat" },
+        { "id": "w-emotion", "type": "core.emotion", "state": "w-emotion", "capabilities": ["read:state"] },
+        { "id": "w-inventory", "type": "core.inventory", "state": "w-inventory", "capabilities": ["read:state"] }
       ]
     }
   }

@@ -59,3 +59,11 @@ jobs:
           --strict=false
           -s schema/airp-state-protocol.schema.json
           -d "examples/*.json"
+      - name: Validate widget manifests
+        run: >-
+          npx --yes ajv-cli@5 validate
+          --spec=draft2020
+          --strict=false
+          -s schema/widget-manifest.schema.json
+          -r schema/airp-state-protocol.schema.json
+          -d "widgets/**/*.json"

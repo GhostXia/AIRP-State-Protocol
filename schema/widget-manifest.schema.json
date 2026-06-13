@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GhostXia/AIRP-State-Protocol/schema/widget-manifest.schema.json",
+  "title": "AIRP Widget Manifest",
+  "description": "Validation entry point for a standalone widget manifest file (e.g. widgets/<namespace>/<name>.json). A thin alias to the WidgetDef definition in airp-state-protocol.schema.json — that file is the single source of truth. Load both schemas together when validating (ajv: -s widget-manifest.schema.json -r airp-state-protocol.schema.json).",
+  "$ref": "https://github.com/GhostXia/AIRP-State-Protocol/schema/airp-state-protocol.schema.json#/$defs/WidgetDef"
+}

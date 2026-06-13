@@ -7,6 +7,6 @@
     "kind": "hello",
     "client": "airp-ui",
     "version": "0.1.0",
-    "accept": ["chat", "emotion", "inventory", "memory", "quest", "map", "card"]
+    "accept": ["core.chat", "core.emotion", "core.inventory", "core.memory", "core.quest", "core.map", "core.card"]
   }
 }

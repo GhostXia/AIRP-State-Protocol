@@ -171,20 +171,45 @@ export interface WidgetInstance {
 }
 
 /**
- * A widget definition as published in the registry.
- * Not part of the wire envelope; used by Gateway/UI registries.
+ * A widget manifest as published in the registry — the OPEN extension contract.
+ *
+ * Not part of the wire envelope; used by Gateway/UI registries. Any third party
+ * can ship a widget by publishing a manifest under its own namespace (see
+ * `type`). Mirrors `schema/widget-manifest.schema.json`.
  */
 export interface WidgetDef {
+  /**
+   * Namespaced widget id, e.g. `"core.chat"` or `"acme.relationship-graph"`.
+   * Must be `namespace.name`; the `core.*` namespace is reserved for first-party widgets.
+   */
   type: string;
+  /** Semantic version. */
   version: string;
-  title?: string;
+  title: string;
+  description?: string;
   /** JSON Schema for this widget's props. */
   propsSchema?: Json;
   /** JSON Schema for this widget's state slice. */
   stateSchema?: Json;
+  /** Permissions this widget requests; enforced by the Gateway. */
   capabilities?: Capability[];
   /** Intent names this widget can emit. */
   intents?: string[];
+  /** How the UI's Widget Registry loads this widget. */
+  entry?: WidgetEntry;
+  author?: string;
+  homepage?: string;
+  license?: string;
+}
+
+/** `builtin` = bundled in the UI; `esm` = loaded as an ES module. */
+export type EntryKind = "builtin" | "esm";
+
+/** How the UI's Widget Registry loads a widget. */
+export interface WidgetEntry {
+  kind: EntryKind;
+  /** For `kind === "esm"`: the module specifier or URL the UI imports. */
+  source?: string;
 }
 
 /** A permission a widget/agent requests; enforced by the Gateway. */

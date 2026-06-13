@@ -195,17 +195,40 @@
     },
     "WidgetDef": {
       "type": "object",
-      "description": "A widget definition as published in the registry (not part of the wire envelope; used by Gateway/UI registries).",
-      "required": ["type", "version"],
+      "description": "A widget manifest as published in the registry (not part of the wire envelope). This is the OPEN extension contract: any third party can ship a widget by publishing a manifest under its own namespace. `schema/widget-manifest.schema.json` is the validation entry point for standalone manifest files.",
+      "required": ["type", "version", "title"],
       "additionalProperties": false,
       "properties": {
-        "type": { "type": "string" },
-        "version": { "type": "string" },
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$",
+          "description": "Namespaced widget id, e.g. \"core.chat\" or \"acme.relationship-graph\". Must contain a namespace and a name separated by a dot, to avoid collisions between third parties. The `core.*` namespace is reserved for first-party widgets."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+",
+          "description": "Semantic version."
+        },
         "title": { "type": "string" },
+        "description": { "type": "string" },
         "propsSchema": { "description": "JSON Schema for this widget's props." },
         "stateSchema": { "description": "JSON Schema for this widget's state slice." },
-        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/Capability" } },
-        "intents": { "type": "array", "items": { "type": "string" }, "description": "Intent names this widget can emit." }
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/Capability" }, "description": "Permissions this widget requests; enforced by the Gateway." },
+        "intents": { "type": "array", "items": { "type": "string" }, "description": "Intent names this widget can emit." },
+        "entry": { "$ref": "#/$defs/WidgetEntry" },
+        "author": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" },
+        "license": { "type": "string" }
+      }
+    },
+    "WidgetEntry": {
+      "type": "object",
+      "description": "How the UI's Widget Registry loads this widget. Optional; first-party widgets are usually `builtin`.",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["builtin", "esm"], "description": "`builtin` = bundled in the UI; `esm` = loaded as an ES module." },
+        "source": { "type": "string", "description": "For kind=esm: the module specifier or URL the UI imports." }
       }
     },
     "Capability": {
