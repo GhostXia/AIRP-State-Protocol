@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GhostXia/AIRP-State-Protocol/schema/airp-state-protocol.schema.json",
+  "title": "AIRP State Protocol",
+  "description": "Wire contract between an AIRP UI (display layer) and an AgentBus implementation (e.g. AIRP-Gateway). Transport-agnostic; JSON-encoded. This schema is the single source of truth; Rust and TypeScript bindings are generated/derived from it.",
+  "$ref": "#/$defs/Envelope",
+  "$defs": {
+    "Envelope": {
+      "type": "object",
+      "description": "Every message on the wire is an Envelope.",
+      "required": ["v", "id", "ts", "src", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "v": { "type": "integer", "const": 1, "description": "Protocol version." },
+        "id": { "type": "string", "description": "Unique message id (UUID recommended)." },
+        "ts": { "type": "integer", "description": "Creation time, epoch milliseconds." },
+        "src": { "type": "string", "description": "Origin: \"ui\", \"gateway\", or \"agent:<name>\"." },
+        "body": { "$ref": "#/$defs/Body" }
+      }
+    },
+    "Body": {
+      "description": "Tagged union discriminated by `kind`.",
+      "oneOf": [
+        { "$ref": "#/$defs/BlueprintMsg" },
+        { "$ref": "#/$defs/StateMsg" },
+        { "$ref": "#/$defs/EventMsg" },
+        { "$ref": "#/$defs/ErrorMsg" },
+        { "$ref": "#/$defs/IntentMsg" },
+        { "$ref": "#/$defs/SubscribeMsg" },
+        { "$ref": "#/$defs/UnsubscribeMsg" },
+        { "$ref": "#/$defs/HelloMsg" },
+        { "$ref": "#/$defs/AckMsg" }
+      ]
+    },
+
+    "BlueprintMsg": {
+      "type": "object",
+      "description": "DOWNSTREAM (gateway -> ui). Set or patch the UI blueprint.",
+      "required": ["kind", "op"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "blueprint" },
+        "op": { "$ref": "#/$defs/SetOrPatch" },
+        "blueprint": { "$ref": "#/$defs/Blueprint", "description": "Present when op = set." },
+        "patch": { "$ref": "#/$defs/JsonPatch", "description": "Present when op = patch." }
+      }
+    },
+    "StateMsg": {
+      "type": "object",
+      "description": "DOWNSTREAM (gateway -> ui). Set or patch a state scope.",
+      "required": ["kind", "scope", "op"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "state" },
+        "scope": { "type": "string", "description": "Widget instance id, \"session\", or a dotted path." },
+        "op": { "$ref": "#/$defs/SetOrPatch" },
+        "state": { "description": "Full state value. Present when op = set." },
+        "patch": { "$ref": "#/$defs/JsonPatch", "description": "Present when op = patch." }
+      }
+    },
+    "EventMsg": {
+      "type": "object",
+      "description": "DOWNSTREAM (gateway -> ui). Fire-and-forget event (toast, sfx, navigate, ...).",
+      "required": ["kind", "topic"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "event" },
+        "topic": { "type": "string" },
+        "data": { "description": "Arbitrary event payload." }
+      }
+    },
+    "ErrorMsg": {
+      "type": "object",
+      "description": "DOWNSTREAM (gateway -> ui). Error report.",
+      "required": ["kind", "code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "error" },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "detail": { "description": "Optional structured detail." }
+      }
+    },
+
+    "IntentMsg": {
+      "type": "object",
+      "description": "UPSTREAM (ui -> gateway). A user action emitted by a widget.",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "intent" },
+        "name": { "type": "string", "description": "Intent name, e.g. \"chat.send\", \"emotion.set\"." },
+        "source": { "type": "string", "description": "Originating widget instance id." },
+        "params": { "description": "Intent parameters." }
+      }
+    },
+    "SubscribeMsg": {
+      "type": "object",
+      "description": "UPSTREAM (ui -> gateway). Subscribe to state scopes.",
+      "required": ["kind", "scopes"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "subscribe" },
+        "scopes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "UnsubscribeMsg": {
+      "type": "object",
+      "description": "UPSTREAM (ui -> gateway). Unsubscribe from state scopes.",
+      "required": ["kind", "scopes"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "unsubscribe" },
+        "scopes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "HelloMsg": {
+      "type": "object",
+      "description": "UPSTREAM (ui -> gateway). Handshake; declares client and renderable widget types.",
+      "required": ["kind", "client", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "hello" },
+        "client": { "type": "string", "description": "Client name, e.g. \"airp-ui\"." },
+        "version": { "type": "string" },
+        "accept": { "type": "array", "items": { "type": "string" }, "description": "Widget types this client can render." }
+      }
+    },
+    "AckMsg": {
+      "type": "object",
+      "description": "Either direction. Acknowledge an envelope by id.",
+      "required": ["kind", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "ack" },
+        "ref": { "type": "string", "description": "The acknowledged envelope id." }
+      }
+    },
+
+    "SetOrPatch": { "type": "string", "enum": ["set", "patch"] },
+
+    "Blueprint": {
+      "type": "object",
+      "description": "Declarative description of the whole UI. The stable, RP-derived asset.",
+      "required": ["version", "layout", "widgets"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "description": "Identity of this blueprint (UUID or content hash)." },
+        "profile": { "type": "string", "description": "RP / UI profile id this blueprint belongs to." },
+        "theme": { "$ref": "#/$defs/Theme" },
+        "layout": { "$ref": "#/$defs/Layout" },
+        "widgets": { "type": "array", "items": { "$ref": "#/$defs/WidgetInstance" } }
+      }
+    },
+    "Theme": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "e.g. \"cyberpunk\"." },
+        "tokens": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Design tokens (color/spacing/...)." }
+      }
+    },
+    "Layout": {
+      "type": "object",
+      "required": ["type", "areas"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["dock", "grid", "stack", "tabs"] },
+        "areas": { "type": "array", "items": { "$ref": "#/$defs/Area" } }
+      }
+    },
+    "Area": {
+      "type": "object",
+      "required": ["id", "widgets"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "widgets": { "type": "array", "items": { "type": "string" }, "description": "Widget instance ids placed in this area." },
+        "props": { "description": "Area-specific layout props (size, dock side, ...)." }
+      }
+    },
+    "WidgetInstance": {
+      "type": "object",
+      "description": "A widget placed in the blueprint.",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "Stable instance id; used as state scope and render key." },
+        "type": { "type": "string", "description": "Registry key, e.g. \"chat\", \"emotion\"." },
+        "props": { "description": "Static props for this instance." },
+        "state": { "type": "string", "description": "State scope this widget binds to (defaults to its id)." },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/Capability" }, "description": "Permissions this instance requests." }
+      }
+    },
+    "WidgetDef": {
+      "type": "object",
+      "description": "A widget definition as published in the registry (not part of the wire envelope; used by Gateway/UI registries).",
+      "required": ["type", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "propsSchema": { "description": "JSON Schema for this widget's props." },
+        "stateSchema": { "description": "JSON Schema for this widget's state slice." },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/Capability" } },
+        "intents": { "type": "array", "items": { "type": "string" }, "description": "Intent names this widget can emit." }
+      }
+    },
+    "Capability": {
+      "type": "string",
+      "description": "Permission a widget/agent requests; enforced by the Gateway.",
+      "enum": ["read:memory", "write:memory", "read:worldbook", "read:state", "write:state", "call:tool"]
+    },
+
+    "JsonPatch": {
+      "type": "array",
+      "description": "RFC 6902 JSON Patch document.",
+      "items": { "$ref": "#/$defs/PatchOp" }
+    },
+    "PatchOp": {
+      "type": "object",
+      "required": ["op", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "type": "string", "enum": ["add", "remove", "replace", "move", "copy", "test"] },
+        "path": { "type": "string", "description": "JSON Pointer (RFC 6901)." },
+        "value": { "description": "Operand for add/replace/test." },
+        "from": { "type": "string", "description": "Source pointer for move/copy." }
+      }
+    }
+  }
+}

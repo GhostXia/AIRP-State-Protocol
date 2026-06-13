@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "01HF000000000000000000IN01",
+  "ts": 1718200004000,
+  "src": "ui",
+  "body": {
+    "kind": "intent",
+    "name": "chat.send",
+    "source": "w-chat",
+    "params": { "text": "你好，Alice。" }
+  }
+}

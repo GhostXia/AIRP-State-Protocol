@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "01HF000000000000000000ST01",
+  "ts": 1718200005000,
+  "src": "agent:narrator",
+  "body": {
+    "kind": "state",
+    "scope": "w-emotion",
+    "op": "patch",
+    "patch": [
+      { "op": "replace", "path": "/emotion", "value": 80 },
+      { "op": "add", "path": "/lastChange", "value": "+12" }
+    ]
+  }
+}

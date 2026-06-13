@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "id": "01HF000000000000000000BP01",
+  "ts": 1718200000000,
+  "src": "gateway",
+  "body": {
+    "kind": "blueprint",
+    "op": "set",
+    "blueprint": {
+      "version": "bp-7f3a9c1e",
+      "profile": "rp:romance:alice",
+      "theme": { "name": "cyberpunk", "tokens": { "accent": "#00e5ff", "bg": "#0b0e14" } },
+      "layout": {
+        "type": "dock",
+        "areas": [
+          { "id": "main", "widgets": ["w-chat"] },
+          { "id": "sidebar", "widgets": ["w-emotion", "w-inventory"], "props": { "side": "right", "width": 320 } }
+        ]
+      },
+      "widgets": [
+        { "id": "w-chat", "type": "chat", "props": { "title": "对话" }, "state": "session.chat" },
+        { "id": "w-emotion", "type": "emotion", "state": "w-emotion", "capabilities": ["read:state"] },
+        { "id": "w-inventory", "type": "inventory", "state": "w-inventory", "capabilities": ["read:state"] }
+      ]
+    }
+  }
+}

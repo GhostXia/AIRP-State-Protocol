@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust binding (cargo test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            bindings/rust/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('bindings/rust/Cargo.toml') }}
+      - run: cargo build --all-targets
+      - run: cargo test
+
+  typescript:
+    name: TypeScript binding (tsc)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run typecheck
+
+  schema:
+    name: JSON Schema (validate examples)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate examples against the protocol schema
+        run: >-
+          npx --yes ajv-cli@5 validate
+          --spec=draft2020
+          --strict=false
+          -s schema/airp-state-protocol.schema.json
+          -d "examples/*.json"

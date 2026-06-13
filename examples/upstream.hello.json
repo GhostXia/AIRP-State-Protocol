@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "01HF000000000000000000HE01",
+  "ts": 1718199999000,
+  "src": "ui",
+  "body": {
+    "kind": "hello",
+    "client": "airp-ui",
+    "version": "0.1.0",
+    "accept": ["chat", "emotion", "inventory", "memory", "quest", "map", "card"]
+  }
+}

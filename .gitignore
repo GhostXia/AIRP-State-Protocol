@@ -1,0 +1,14 @@
+# Rust
+/bindings/rust/target/
+**/*.rs.bk
+
+# Node / TypeScript
+node_modules/
+/bindings/typescript/dist/
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
