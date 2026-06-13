@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+# Opt the bundled JS actions into the Node.js 24 runtime ahead of GitHub's
+# 2026-06-16 default switch (silences the Node.js 20 deprecation warning).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   rust:
     name: Rust binding (cargo test)
