@@ -13,8 +13,20 @@ Thanks for contributing. This repo is the **contract layer** of the AIRP ecosyst
 | Job | What it does |
 |-----|--------------|
 | `rust` | `cargo build --all-targets` + `cargo test` |
-| `typescript` | `tsc --noEmit` |
+| `typescript` | `tsc --noEmit` (protocol binding) |
 | `schema` | `ajv` validates `examples/*.json` and `widgets/**/*.json` |
+| `ui` | `npm install` + `npm run build` (`vue-tsc --noEmit` + `vite build`) |
+
+## Running the UI
+
+```bash
+npm install
+npm run dev        # Vite dev server; MockBus provides a sample session
+npm run build      # vue-tsc typecheck + vite build
+npm run tauri dev  # run inside the Tauri desktop shell (needs local Tauri deps)
+```
+
+> Bundling to a packaged `.exe` is disabled for now (`src-tauri/tauri.conf.json` `bundle.active=false`).
 
 ## Adding a widget (the common case)
 
@@ -24,8 +36,11 @@ Widgets are open to any third party. To register one:
    - `type` must be `namespace.name` (must contain a dot), e.g. `acme.relationship-graph`.
    - `core.*` is reserved for first-party widgets.
 2. Fill in the manifest per [`schema/widget-manifest.schema.json`](schema/widget-manifest.schema.json). See [`docs/widget-authoring.md`](docs/widget-authoring.md) for field-by-field guidance and the [`widgets/core/`](widgets/core) manifests as examples.
-3. Open a PR. CI validates your manifest automatically.
-4. The widget's **implementation** (the Vue component) lives in the `AIRP-UI` repo, not here. This repo only owns the manifest/contract. Link your UI PR from the manifest PR if you have one.
+3. Add the **component** that renders it:
+   - First-party: a `.vue` file under `src/widgets/`, registered in `src/registry/index.ts` under its `core.*` type. See `src/widgets/ChatWidget.vue` / `EmotionWidget.vue`.
+   - Third-party: ship the component as an ES module and register its namespaced type; it can be loaded via the manifest's `entry: { kind: "esm", source }`.
+   - The component gets `defineProps<{ instance: WidgetInstance; state: unknown }>()` and may `defineEmits<{ (e: "intent", name: string, params?: Json): void }>()`. Only manifest-declared capabilities are granted (Gateway-enforced).
+4. Open a PR. CI validates the manifest and builds the UI automatically.
 
 Declare only the `capabilities` your widget actually needs — the Gateway enforces them.
 

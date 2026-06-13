@@ -1,9 +1,11 @@
 # Rust
 /bindings/rust/target/
+/src-tauri/target/
 **/*.rs.bk
 
 # Node / TypeScript
 node_modules/
+/dist/
 /bindings/typescript/dist/
 npm-debug.log*
 
