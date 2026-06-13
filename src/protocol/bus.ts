@@ -30,12 +30,13 @@ const SAMPLE_BLUEPRINT: Blueprint = {
     type: "dock",
     areas: [
       { id: "main", widgets: ["w-chat"] },
-      { id: "sidebar", widgets: ["w-emotion"], props: { side: "right" } },
+      { id: "sidebar", widgets: ["w-emotion", "w-clock"], props: { side: "right" } },
     ],
   },
   widgets: [
     { id: "w-chat", type: "core.chat", props: { title: "对话" }, state: "w-chat" },
     { id: "w-emotion", type: "core.emotion", state: "w-emotion", capabilities: ["read:state"] },
+    { id: "w-clock", type: "core.clock", state: "w-emotion" },
   ],
 };
 

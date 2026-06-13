@@ -1,18 +1,28 @@
 /**
  * Built-in (first-party) widget registration.
  *
- * To add a first-party widget: create the component under `src/widgets/` and
- * register it here under its `core.*` type. Third-party widgets live in their
- * own packages and register their own namespaced types (see CONTRIBUTING.md).
+ * First-party widgets may be native Vue components or framework-agnostic
+ * modules. Third-party widgets register their own namespaced types the same way
+ * (or are loaded from a manifest `entry: { kind: "esm", source }`). See
+ * CONTRIBUTING.md and docs/widget-authoring.md.
  */
 
-import { registerWidget } from "./registry";
+import { registerVueWidget, registerModuleWidget } from "./registry";
 import ChatWidget from "../widgets/ChatWidget.vue";
 import EmotionWidget from "../widgets/EmotionWidget.vue";
+import { createClockWidget } from "../widgets/clock.module";
 
 export function registerBuiltins(): void {
-  registerWidget("core.chat", () => ChatWidget);
-  registerWidget("core.emotion", () => EmotionWidget);
+  registerVueWidget("core.chat", () => ChatWidget);
+  registerVueWidget("core.emotion", () => EmotionWidget);
+  // A framework-agnostic (vanilla DOM) widget — proves authors aren't tied to Vue.
+  registerModuleWidget("core.clock", () => createClockWidget());
 }
 
-export { registerWidget, resolveWidget, registeredTypes } from "./registry";
+export {
+  registerWidget,
+  registerVueWidget,
+  registerModuleWidget,
+  resolveWidget,
+  registeredTypes,
+} from "./registry";

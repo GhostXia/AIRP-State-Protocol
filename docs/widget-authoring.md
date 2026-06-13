@@ -54,7 +54,38 @@ AIRP UI 的 widget 系统**对任何第三方开放**。你不改协议核心、
 - 状态真相在 Gateway，UI 只渲染视口窗口（性能契约，见背景文档 §6）。`stateSchema` 描述的是切片形状。
 - 用稳定 id 做 key；状态更新优先 patch。
 
-## 6. 最小示例
+## 6. 组件接口（框架无关）
+
+组件**不限框架**——任意技术实现，只要符合宿主接口。两种：
+
+**a) module（推荐给第三方，框架无关）**：导出一个返回 `WidgetModule` 的工厂。
+
+```ts
+interface WidgetContext {
+  instance: WidgetInstance;                       // id / type / props / 已授予 capability
+  getState(): unknown;                            // 读当前 scope 状态
+  onState(cb: (s: unknown) => void): () => void;  // 订阅状态变化（patch 后触发）
+  emit(name: string, params?: Json): void;        // 发 intent（用户操作）
+  capabilities: Capability[];
+}
+interface WidgetModule {
+  mount(el: HTMLElement, ctx: WidgetContext): void | Promise<void>;
+  unmount?(): void;
+}
+// 用任意技术在 mount 里建 DOM
+export default (): WidgetModule => ({
+  mount(el, ctx) { /* React / Svelte / Lit / 原生 ... */ },
+  unmount() { /* 清理 */ },
+});
+```
+
+宿主给 `el` + `ctx`：在 `mount` 自由渲染，`onState` 收状态更新，`emit` 发操作，`unmount` 清理。纯 DOM 样例（无框架）：`src/widgets/clock.module.ts`。
+
+**b) vue（第一方）**：原生 Vue 组件，props `{ instance, state }`，emit `intent`。样例：`src/widgets/ChatWidget.vue`。
+
+> 责任：宿主强制 capability、隔离自身秘密、错误兜底；**不审核你的代码，风险用户自担**。见 [SECURITY.md](SECURITY.md)。
+
+## 7. 最小示例
 
 `widgets/acme/relationship-graph.json`：
 
@@ -79,6 +110,6 @@ AIRP UI 的 widget 系统**对任何第三方开放**。你不改协议核心、
 }
 ```
 
-## 7. 提交
+## 8. 提交
 
-加文件到 `widgets/<namespace>/<name>.json` → 开 PR → CI 自动校验 manifest。组件实现（Vue）放 `AIRP-UI` 仓库。完整流程见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
+加 manifest 到 `widgets/<namespace>/<name>.json` + 组件实现（第一方放 `src/widgets/` 并在 `src/registry/index.ts` 注册；第三方用 esm module）→ 开 PR → CI 自动校验 manifest 并构建/测试 UI。完整流程见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
