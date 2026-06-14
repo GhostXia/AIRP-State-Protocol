@@ -23,6 +23,13 @@ export {
   registerWidget,
   registerVueWidget,
   registerModuleWidget,
+  registerEsmWidget,
   resolveWidget,
   registeredTypes,
 } from "./registry";
+export {
+  registerManifest,
+  getManifest,
+  allManifests,
+  registerEsmWidgetsFromManifests,
+} from "./manifests";

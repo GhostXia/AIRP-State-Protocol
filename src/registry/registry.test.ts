@@ -3,6 +3,7 @@ import type { Component } from "vue";
 import {
   registerVueWidget,
   registerModuleWidget,
+  registerEsmWidget,
   resolveWidget,
   registeredTypes,
 } from "./registry";
@@ -33,5 +34,16 @@ describe("widget registry", () => {
   it("lists registered types", () => {
     registerVueWidget("test.listed", () => stub);
     expect(registeredTypes()).toContain("test.listed");
+  });
+
+  it("registerEsmWidget loads via the injected importer", async () => {
+    const mod: WidgetModule = { mount() {} };
+    const importer = async () => ({ default: () => mod });
+    registerEsmWidget("test.esm", "https://example.com/w.mjs", importer);
+    const reg = resolveWidget("test.esm");
+    expect(reg?.kind).toBe("module");
+    if (reg?.kind === "module") {
+      expect(await reg.load()).toBe(mod);
+    }
   });
 });
