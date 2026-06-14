@@ -62,6 +62,16 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 ### F. 补齐第一方 widget 组件
 - manifest 已有 `core.memory/inventory/quest/map/card`，组件未写。按需补 `.vue`/module + 注册。
 
+### G. 让「独立使用」实操无摩擦（不止治感知，更治实操）
+- **发布绑定**：`bindings/typescript` → npm（`@airp/state-protocol`）、`bindings/rust` → crates.io（或先打 tag + 写明 git 依赖用法）。目标：「只用协议」= `npm install` / `cargo add`，而非 git 子目录路径。
+- **独立用法示例**：各出一个可复制的最小例——① 只用协议契约；② 只用 UI（配自定义 `AgentBus`）；③ 只用单个 widget。
+- 验收：三种独立路径各有最小示例，均不引入其余组件。
+
+### H. 生态级框架措辞同步（跨仓库）
+- 把「乐高，不是套件」框架同步到 [AIRP-MCP-Server](https://github.com/GhostXia/AIRP-MCP-Server)、[AIRP-Gateway](https://github.com/GhostXia/AIRP-Gateway) 的 README / `SKILL.md`：**独立用法置顶，拼装说明降级为「可选」**。
+- 背景：外部反馈「自洽三件套」造成「必须三件一起用」错觉（2026-06-13）。本仓库已在 README 修（「乐高，不是套件」节，PR #10）；另两仓库待同步。
+- 注：跨仓库，不在本仓库 CI 范围。
+
 ## 4. 开放决策（待拍板）
 
 - **State-Protocol ↔ MCP 关系**：协议包裹在 MCP 之上，还是平行独立通道？影响 Gateway dispatch。
