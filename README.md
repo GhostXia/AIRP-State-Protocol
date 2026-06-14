@@ -6,7 +6,17 @@
 
 > 一仓两面：① Tauri+Vue 应用（显示层）；② 它与 AgentBus（如 AIRP-Gateway）之间，与具体 Agent 无关的 State Protocol 契约（Schema + Rust/TS 绑定 + widget manifest）。
 
-## 生态定位
+## 乐高，不是套件
+
+每一块都能**单独使用**，不强制你引入其余部分：
+
+- **只用协议契约**：拿 `schema/` + `bindings/`（Rust 或 TS 类型）在你自己的项目里描述/校验 UI 状态与 Blueprint。不需要本 UI，也不需要 Gateway / MCP。
+- **只用 UI**：Tauri + Vue 应用配**任意** `AgentBus` 实现——内置 `MockBus` 无任何后端即可跑；接你自己的后端只需实现 `dispatch` + `subscribe`，不绑定 AIRP-Gateway。
+- **只用 / 自写一个 widget**：按 `mount` 接口（或 manifest）做一个 widget，挂到任何使用本协议的 UI 上，不需要其余组件。
+
+> 下面的「生态」只是把这些（再加 AIRP 的后端）**拼满时**的样子——是**可选组合，不是运行前置**。任何一层都可单独使用、可换任意实现。
+
+## 生态定位（可选的完整组合）
 
 ```
 AIRP-State-Protocol  (本仓库, Tauri + Vue UI + 协议契约)  ← Widget Registry 渲染 Blueprint
