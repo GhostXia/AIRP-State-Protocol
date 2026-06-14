@@ -9,7 +9,7 @@
  */
 
 import type { Component } from "vue";
-import type { WidgetModule } from "./widget-module";
+import type { WidgetModule, WidgetFactory } from "./widget-module";
 
 export type RegisteredWidget =
   | { kind: "vue"; load: () => Component | Promise<Component> }
@@ -35,6 +35,26 @@ export function registerModuleWidget(
   load: () => WidgetModule | Promise<WidgetModule>,
 ): void {
   registry.set(type, { kind: "module", load });
+}
+
+/**
+ * Register a third-party widget loaded as an ES module from `source` (per a
+ * manifest `entry: { kind: "esm", source }`). The module's default export is a
+ * {@link WidgetFactory}. `importer` is injectable for testing.
+ */
+export function registerEsmWidget(
+  type: string,
+  source: string,
+  importer: (s: string) => Promise<unknown> = (s) => import(/* @vite-ignore */ s),
+): void {
+  registry.set(type, {
+    kind: "module",
+    load: async () => {
+      const mod = (await importer(source)) as { default?: WidgetFactory } | WidgetFactory;
+      const factory = (typeof mod === "function" ? mod : mod.default) as WidgetFactory;
+      return factory();
+    },
+  });
 }
 
 export function resolveWidget(type: string): RegisteredWidget | undefined {

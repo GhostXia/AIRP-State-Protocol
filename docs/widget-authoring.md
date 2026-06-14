@@ -85,6 +85,8 @@ export default (): WidgetModule => ({
 
 > 责任：宿主强制 capability、隔离自身秘密、错误兜底；**不审核你的代码，风险用户自担**。见 [SECURITY.md](SECURITY.md)。
 
+**esm 加载已接通**：UI 端 `registerEsmWidget(type, source)` 把一个 esm 模块按其 `default` 工厂注册成 module widget；或 `registerEsmWidgetsFromManifests(manifests)` 直接从带 `entry:{kind:"esm",source}` 的 manifest 批量接入。第三方因此只需发一个 manifest + 一个 esm 模块即可被装载，无需改 UI 源码。
+
 ## 7. 最小示例
 
 `widgets/acme/relationship-graph.json`：
