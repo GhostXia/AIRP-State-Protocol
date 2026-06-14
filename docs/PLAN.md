@@ -1,11 +1,43 @@
 # AIRP-State-Protocol 推进计划
 
-> 活文档：记录当前进度、下一步任务、开放决策与工作规则，方便随时接手。
+> 活文档（计划书）：愿景与未来展望、里程碑路线图、当前进度、下一步任务、开放决策与工作规则，方便随时接手。
 > 最后更新：2026-06-13
 
 ## 0. 一句话定位
 
 本仓库 = **AIRP 的 UI 项目**（Tauri + Vue 显示层）+ 它所渲染的**状态/渲染协议契约**。理念：通用优先、不绑定任何项目，任何第三方都能接入。详见 [README](../README.md)、[背景整理](AIRP-架构与状态协议-背景整理.md)、[协议规范](spec/protocol.md)、[责任边界](SECURITY.md)。
+
+## 愿景与未来展望
+
+**一句话愿景**：做「Agent 驱动界面」的通用、开放标准——任何 Agent、任何后端、任何前端框架、任何第三方 widget 都能接入。像浏览器之于网页，成为 Agent 时代的「标准显示层 + 状态协议」。
+
+**三根长期支柱**
+
+1. **协议即核心资产**：稳定的 State Protocol（消息 / Blueprint / 状态 / patch）比任何具体实现更值钱。目标是成为「Agent 如何驱动一个长期存在、可扩展、低 Token 的界面」的事实标准——这正是当前行业缺的那块（背景 §3.1）。
+2. **通用 + 开放**：不绑定项目 / 厂商 / 框架；widget 对任何第三方开放；每块都能单独用（乐高，不是套件）。
+3. **安全分层**：宿主守自身（capability / 秘密隔离 / 同意 / 错误隔离），不审核插件，用户自担（[SECURITY.md](SECURITY.md)）。
+
+**它会长成什么样（展望）**
+
+- **近期**：Tauri + Vue 桌面应用，嵌入式 sidecar Gateway，本地优先的 RP 客户端。
+- **中期**：多前端（桌面 / web / 移动）共用同一协议；第三方 widget 生态 / 市场；「一个 UI ↔ 多个 Agent」会话总线。
+- **远期**：协议被 AIRP 之外的项目采用（非 AIRP 后端也能用），成为「Agent UI 协议」的标准候选；Gateway 演化为 Agent Operating Bus（背景 §3.5）。
+
+## 里程碑路线图
+
+> 版本是能力里程碑，非日期承诺。
+
+- **v0.1 — 契约 + UI 骨架（当前，基本完成）**
+  协议 v1 契约（schema + Rust/TS 绑定）、开放 widget 框架、Tauri+Vue UI 骨架（Registry / Blueprint / 状态+patch / MockBus）、框架无关 `mount` 接口、esm 动态加载、责任边界、LICENSE 对齐、CI 四 job。
+- **v0.2 — 接通真实链路**
+  接真实 AgentBus（Tauri IPC → Gateway，任务 B）；esm 端到端样例 + manifest 流入 App（任务 A 收尾）；聊天虚拟滚动 + perf spike（任务 C）；独立用法示例（任务 G 示例）。
+  *验收*：UI ↔ Gateway ↔ MCP 真跑通一个 RP 会话。
+- **v0.3 — 安全与生态**
+  iframe sandbox（D）；capability 强制 + 同意 UI（E）；补齐第一方 widget（F）；发布绑定到 npm / crates（G 发布）；跨仓库框架措辞同步（H）。
+- **v1.0 — 协议稳定**
+  协议冻结 v1；状态同步语义（热 / 冷）定稿；capability 粒度定稿；布局 DSL「逃生舱」决策落地；作者文档 / 示例完善。
+- **远期**
+  多 Agent 会话总线；多前端；协议标准化推广。
 
 ## 1. 现状快照（已合并到 `main`）
 
