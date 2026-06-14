@@ -83,7 +83,7 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 
 ## 状态
 
-`v0.1` 开发中。已定决策见背景文档 §5（前端框架 = **Vue**）；仍开放问题见 §7（首批 widget 清单、与 MCP 关系、capability 粒度）。
+`v0.1` 开发中。已定决策见背景文档 §5（前端框架 = **Vue**）；仍开放问题见 §7。**推进进度、下一步任务、工作规则见 [docs/PLAN.md](docs/PLAN.md)。**
 
 ## License
 
