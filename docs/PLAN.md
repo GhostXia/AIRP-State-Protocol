@@ -91,7 +91,8 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - 验收：未授权 capability 的调用被拒；启用流程有知情同意。
 
 ### F. 补齐第一方 widget 组件
-- manifest 已有 `core.memory/inventory/quest/map/card`，组件未写。按需补 `.vue`/module + 注册。
+- **已落地**：`core.memory/inventory/quest/map/card` 五个 Vue 组件 + 注册（`src/widgets/*.vue`，`registerBuiltins`），inventory/quest 已进样例蓝图并播种状态；`registerBuiltins` 全类型注册有测试覆盖。
+- **剩余**：按需打磨样式/交互；其余 widget 视新场景再加。
 
 ### G. 让「独立使用」实操无摩擦（不止治感知，更治实操）
 - **发布绑定**：`bindings/typescript` → npm（`@airp/state-protocol`）、`bindings/rust` → crates.io（或先打 tag + 写明 git 依赖用法）。目标：「只用协议」= `npm install` / `cargo add`，而非 git 子目录路径。
