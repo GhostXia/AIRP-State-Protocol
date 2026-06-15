@@ -95,9 +95,8 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **剩余**：按需打磨样式/交互；其余 widget 视新场景再加。
 
 ### G. 让「独立使用」实操无摩擦（不止治感知，更治实操）
-- **发布绑定**：`bindings/typescript` → npm（`@airp/state-protocol`）、`bindings/rust` → crates.io（或先打 tag + 写明 git 依赖用法）。目标：「只用协议」= `npm install` / `cargo add`，而非 git 子目录路径。
-- **独立用法示例**：各出一个可复制的最小例——① 只用协议契约；② 只用 UI（配自定义 `AgentBus`）；③ 只用单个 widget。
-- 验收：三种独立路径各有最小示例，均不引入其余组件。
+- **独立用法示例（已落地）**：`examples/standalone/` 三例——① 只用协议契约 `protocol-only.ts`；② 自定义 `AgentBus` 驱动 `custom-bus.ts`；③ `mount` 接口单 widget `standalone-widget.ts`，均由 `vitest` 验证（见 `standalone.test.ts`）。
+- **剩余 — 发布绑定**：`bindings/typescript` → npm（`@airp/state-protocol`）、`bindings/rust` → crates.io（需账号/令牌）。目标：「只用协议」= `npm install` / `cargo add`，而非 git 子目录路径。
 
 ### H. 生态级框架措辞同步（跨仓库）
 - 把「乐高，不是套件」框架同步到 [AIRP-MCP-Server](https://github.com/GhostXia/AIRP-MCP-Server)、[AIRP-Gateway](https://github.com/GhostXia/AIRP-Gateway) 的 README / `SKILL.md`：**独立用法置顶，拼装说明降级为「可选」**。
