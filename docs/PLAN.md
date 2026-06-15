@@ -85,6 +85,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - 做：`entry.sandbox=true` → 把 esm widget 装进沙箱 iframe，`postMessage` 转发同一套 `WidgetContext`（getState/onState/emit）。
 - 关键文件：`src/components/WidgetHost.vue`（sandbox 分支）+ 一个 iframe bootstrap。
 - 验收：沙箱内 widget 无法触碰宿主 DOM/秘密；接口与 in-process 一致。
+- 参考：Ironsmith 的「沙箱 + 代码签名」对待 AI/第三方代码（见 §7）。
 
 ### E. capability 强制 + 启用同意（需 Gateway 配合）
 - 做：宿主/Gateway 按 manifest capability 卡数据；启用 esm widget 前弹同意（展示 `entry.source` + 申请 capability）。
@@ -134,3 +135,12 @@ docs/AIRP-架构与状态协议-背景整理.md  决策/性能契约全背景
 docs/PLAN.md                本文件
 .github/workflows/          ci.yml（rust/ts/schema/ui）+ release-exe.yml（手动）
 ```
+
+## 7. 外部参考
+
+- **[Ironsmith](https://github.com/Jeidoban/Ironsmith)**（macOS 菜单栏：用 LLM 从自然语言生成原生 Mac 应用）
+  - 它走的是我们**否决**的路线 1（Agent 直接生成代码）；它的产品是「一次性生成独立 app」，能接受路线 1 的代价（每 app 生成 + 编译）。看其代价**反向印证**我们对长期界面选路线 2（Blueprint）的决定。
+  - **可借鉴 ①（喂任务 D / SECURITY）**：对「AI / 第三方产出的代码」用 **沙箱 + 代码签名** 兜安全——是我们 iframe sandbox 与「装已签名二进制」策略的现成先例。
+  - **可借鉴 ②（喂 Gateway / Agent 侧）**：本地 + 云 LLM 提供商抽象（Ollama / LM Studio / Llama.cpp + OpenAI / Anthropic / Gemini），印证「任意 Agent / 任意后端」方向。
+  - 立场印证：拒绝 Electron、走原生（与我们选 Tauri 同向）。
+  - 不通用：macOS / Swift 栈，代码层面不可直接复用。
