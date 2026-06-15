@@ -31,12 +31,15 @@ const SAMPLE_BLUEPRINT: Blueprint = {
     areas: [
       { id: "main", widgets: ["w-chat"] },
       { id: "sidebar", widgets: ["w-emotion", "w-clock"], props: { side: "right" } },
+      { id: "tools", widgets: ["w-inventory", "w-quest"], props: { side: "right" } },
     ],
   },
   widgets: [
     { id: "w-chat", type: "core.chat", props: { title: "对话" }, state: "w-chat" },
     { id: "w-emotion", type: "core.emotion", state: "w-emotion", capabilities: ["read:state"] },
     { id: "w-clock", type: "core.clock", state: "w-emotion" },
+    { id: "w-inventory", type: "core.inventory", state: "w-inventory", capabilities: ["read:state"] },
+    { id: "w-quest", type: "core.quest", state: "w-quest", capabilities: ["read:state"] },
   ],
 };
 
@@ -78,6 +81,22 @@ export class MockBus implements AgentBus {
         }),
       );
       this.emit(env("gateway", { kind: "state", scope: "w-emotion", op: "set", state: { emotion: 60, label: "平静" } }));
+      this.emit(
+        env("gateway", {
+          kind: "state",
+          scope: "w-inventory",
+          op: "set",
+          state: { items: [{ id: "i1", name: "钥匙", qty: 1, icon: "🔑" }, { id: "i2", name: "信用点", qty: 250, icon: "¤" }] },
+        }),
+      );
+      this.emit(
+        env("gateway", {
+          kind: "state",
+          scope: "w-quest",
+          op: "set",
+          state: { quests: [{ id: "q1", title: "找到接头人", status: "active" }, { id: "q2", title: "抵达旧城区", status: "done" }] },
+        }),
+      );
       setTimeout(() => {
         this.emit(env("agent:narrator", { kind: "state", scope: "w-emotion", op: "patch", patch: [{ op: "replace", path: "/emotion", value: 80 }, { op: "replace", path: "/label", value: "心动" }] }));
       }, 1500);

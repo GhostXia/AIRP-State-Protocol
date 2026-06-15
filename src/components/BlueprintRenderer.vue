@@ -67,4 +67,7 @@ function onIntent(name: string, params?: Json): void {
 .area-sidebar {
   width: 320px;
 }
+.area-tools {
+  width: 260px;
+}
 </style>
