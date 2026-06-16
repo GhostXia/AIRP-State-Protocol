@@ -51,6 +51,9 @@ pub enum Body {
     Blueprint(BlueprintMsg),
     /// Set or patch a state scope.
     State(StateMsg),
+    /// Deliver widget manifests so the UI can auto-register widgets it cannot
+    /// yet render (the open extension contract, over the wire).
+    Manifest(ManifestMsg),
     /// Fire-and-forget event (toast, sfx, navigate, ...).
     Event(EventMsg),
     /// Error report.
@@ -98,6 +101,21 @@ pub struct StateMsg {
     /// Present when `op = patch`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub patch: Option<JsonPatch>,
+}
+
+/// DOWNSTREAM. Deliver widget manifests so the UI can auto-register widgets it
+/// cannot yet render.
+///
+/// `op = Set` replaces the UI's full known-manifest set; `op = Patch` upserts
+/// the given subset by `type` (the incremental form — an upsert of `manifests`,
+/// not an RFC 6902 JSON Patch), letting the Gateway ship only diffs. The UI
+/// should process a manifest BEFORE any blueprint that references its types.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ManifestMsg {
+    pub op: SetOrPatch,
+    /// Manifests to set or upsert (third-party under their own namespace, or
+    /// `core.*` first-party).
+    pub manifests: Vec<WidgetDef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -218,9 +236,9 @@ pub struct WidgetInstance {
 
 /// A widget manifest as published in the registry — the OPEN extension contract.
 ///
-/// Not part of the wire envelope; used by Gateway/UI registries. Any third party
-/// can ship a widget by publishing a manifest under its own namespace (see the
-/// `type` field). Mirrors `schema/widget-manifest.schema.json`.
+/// Carried to the UI by a [`ManifestMsg`]; any third party can ship a widget by
+/// publishing a manifest under its own namespace (see the `type` field). Mirrors
+/// `schema/widget-manifest.schema.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WidgetDef {
     /// Namespaced widget id, e.g. `"core.chat"` or `"acme.relationship-graph"`.
@@ -438,5 +456,43 @@ mod tests {
         let text = serde_json::to_string(&env).unwrap();
         assert!(text.contains("\"ref\":\"m1\""));
         assert!(!text.contains("ref_"));
+    }
+
+    #[test]
+    fn manifest_roundtrips() {
+        let env = Envelope::new(
+            "m1",
+            1_718_200_000_000,
+            "gateway",
+            Body::Manifest(ManifestMsg {
+                op: SetOrPatch::Patch,
+                manifests: vec![WidgetDef {
+                    kind: "acme.status-pill".into(),
+                    version: "1.2.0".into(),
+                    title: "状态胶囊".into(),
+                    description: None,
+                    props_schema: None,
+                    state_schema: None,
+                    capabilities: Some(vec![Capability::ReadState]),
+                    intents: Some(vec!["status.toggle".into()]),
+                    entry: Some(WidgetEntry {
+                        kind: EntryKind::Esm,
+                        source: Some("https://cdn.example.com/status-pill.mjs".into()),
+                    }),
+                    author: None,
+                    homepage: None,
+                    license: None,
+                }],
+            }),
+        );
+
+        let text = serde_json::to_string(&env).unwrap();
+        // discriminator flattened onto the body
+        assert!(text.contains("\"kind\":\"manifest\""));
+        assert!(text.contains("\"acme.status-pill\""));
+        assert!(text.contains("\"status-pill.mjs\""));
+
+        let back: Envelope = serde_json::from_str(&text).unwrap();
+        assert_eq!(env, back);
     }
 }

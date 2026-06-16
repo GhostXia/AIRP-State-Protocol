@@ -17,6 +17,21 @@ export type RegisteredWidget =
 
 const registry = new Map<string, RegisteredWidget>();
 
+/**
+ * The default dynamic importer used to load an `esm` widget from its manifest
+ * `source`. A host (or dev demo) can override this to map source specifiers to
+ * local modules without a network/CDN, or to add caching / consent gating.
+ * `registerEsmWidget` still accepts an explicit `importer` to override per-call
+ * (handy for tests).
+ */
+let defaultEsmImporter: (source: string) => Promise<unknown> = (s) =>
+  import(/* @vite-ignore */ s);
+
+/** Override how `esm` widget sources are imported globally. */
+export function setDefaultEsmImporter(importer: (source: string) => Promise<unknown>): void {
+  defaultEsmImporter = importer;
+}
+
 export function registerWidget(type: string, widget: RegisteredWidget): void {
   registry.set(type, widget);
 }
@@ -40,12 +55,14 @@ export function registerModuleWidget(
 /**
  * Register a third-party widget loaded as an ES module from `source` (per a
  * manifest `entry: { kind: "esm", source }`). The module's default export is a
- * {@link WidgetFactory}. `importer` is injectable for testing.
+ * {@link WidgetFactory}. `importer` is injectable for testing; when omitted the
+ * {@link defaultEsmImporter} (overridable via {@link setDefaultEsmImporter}) is
+ * used.
  */
 export function registerEsmWidget(
   type: string,
   source: string,
-  importer: (s: string) => Promise<unknown> = (s) => import(/* @vite-ignore */ s),
+  importer: (s: string) => Promise<unknown> = defaultEsmImporter,
 ): void {
   registry.set(type, {
     kind: "module",

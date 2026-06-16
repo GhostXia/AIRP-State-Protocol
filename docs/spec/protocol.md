@@ -35,6 +35,7 @@
 |------|------|------|
 | `blueprint` | `op`(set\|patch), `blueprint?`, `patch?` | 设置/补丁 UI 蓝图。`set` 带全量 `blueprint`，`patch` 带 JSON Patch。 |
 | `state` | `scope`, `op`(set\|patch), `state?`, `patch?` | 设置/补丁某 scope 状态。 |
+| `manifest` | `op`(set\|patch), `manifests[]` | 下发 widget manifest（WidgetDef[]），UI 据此自动注册尚不能渲染的 widget（开放扩展契约上线）。`set`=全量替换；`patch`=按 `type` 增量 upsert（**注意**：此处 `patch` 指 manifests 数组的 upsert，**不是** RFC 6902 JSON Patch）。UI 须在引用这些类型的 `blueprint` **之前**处理 manifest（渲染器在 mount 时只解析一次 widget 类型）。 |
 | `event` | `topic`, `data?` | 一次性事件（toast / 音效 / 导航）。 |
 | `error` | `code`, `message`, `detail?` | 错误。 |
 

@@ -23,6 +23,7 @@
       "oneOf": [
         { "$ref": "#/$defs/BlueprintMsg" },
         { "$ref": "#/$defs/StateMsg" },
+        { "$ref": "#/$defs/ManifestMsg" },
         { "$ref": "#/$defs/EventMsg" },
         { "$ref": "#/$defs/ErrorMsg" },
         { "$ref": "#/$defs/IntentMsg" },
@@ -56,6 +57,17 @@
         "op": { "$ref": "#/$defs/SetOrPatch" },
         "state": { "description": "Full state value. Present when op = set." },
         "patch": { "$ref": "#/$defs/JsonPatch", "description": "Present when op = patch." }
+      }
+    },
+    "ManifestMsg": {
+      "type": "object",
+      "description": "DOWNSTREAM (gateway -> ui). Deliver widget manifests so the UI can auto-register widgets it cannot yet render — the OPEN extension contract over the wire. Each entry is a WidgetDef (third-party under its own namespace, or core.* first-party). `op=set` replaces the UI's full known-manifest set; `op=patch` upserts the given subset by `type` (the incremental form for manifests — an upsert of `manifests`, not an RFC 6902 JSON Patch; lets the Gateway ship only diffs, keeping Token low). The UI should process a manifest BEFORE any blueprint that references its types, since the renderer resolves a widget type once at mount.",
+      "required": ["kind", "op", "manifests"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "manifest" },
+        "op": { "$ref": "#/$defs/SetOrPatch", "description": "`set` = full replacement; `patch` = incremental upsert by `type`." },
+        "manifests": { "type": "array", "items": { "$ref": "#/$defs/WidgetDef" }, "description": "Manifests to set or upsert." }
       }
     },
     "EventMsg": {

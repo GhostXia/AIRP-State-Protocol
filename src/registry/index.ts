@@ -34,6 +34,7 @@ export {
   registerVueWidget,
   registerModuleWidget,
   registerEsmWidget,
+  setDefaultEsmImporter,
   resolveWidget,
   registeredTypes,
 } from "./registry";
@@ -41,5 +42,7 @@ export {
   registerManifest,
   getManifest,
   allManifests,
+  clearManifests,
   registerEsmWidgetsFromManifests,
+  applyManifestMessage,
 } from "./manifests";

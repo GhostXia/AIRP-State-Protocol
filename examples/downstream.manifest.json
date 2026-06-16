@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "id": "01HF000000000000000000MA01",
+  "ts": 1718199998000,
+  "src": "gateway",
+  "body": {
+    "kind": "manifest",
+    "op": "patch",
+    "manifests": [
+      {
+        "type": "acme.relationship-graph",
+        "version": "1.0.0",
+        "title": "关系图",
+        "description": "Third-party esm widget delivered over the wire.",
+        "stateSchema": { "type": "object" },
+        "intents": ["relationship.focus"],
+        "capabilities": ["read:state"],
+        "entry": { "kind": "esm", "source": "https://cdn.example.com/relationship-graph.mjs" },
+        "author": "Acme",
+        "license": "MIT"
+      }
+    ]
+  }
+}

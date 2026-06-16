@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, shallowRef } from "vue";
 import type { Blueprint, Envelope, Json } from "./protocol/types";
 import { MockBus } from "./protocol/bus";
 import { stateStore, setState, patchState } from "./state/store";
-import { registerBuiltins } from "./registry";
+import { registerBuiltins, applyManifestMessage } from "./registry";
 import BlueprintRenderer from "./components/BlueprintRenderer.vue";
 
 // Register first-party widgets into the open registry.
@@ -17,7 +17,12 @@ let unsubscribe: (() => void) | null = null;
 
 function onEnvelope(e: Envelope): void {
   const body = e.body;
-  if (body.kind === "blueprint" && body.op === "set" && body.blueprint) {
+  // Manifests are processed BEFORE blueprint: the renderer resolves a widget
+  // type once at mount, so a third-party esm widget must be registered before
+  // the blueprint that references it arrives.
+  if (body.kind === "manifest") {
+    applyManifestMessage(body.op, body.manifests);
+  } else if (body.kind === "blueprint" && body.op === "set" && body.blueprint) {
     blueprint.value = body.blueprint;
   } else if (body.kind === "state") {
     if (body.op === "set") setState(body.scope, body.state ?? null);
