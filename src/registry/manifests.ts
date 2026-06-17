@@ -13,9 +13,12 @@
  */
 
 import type { WidgetDef, SetOrPatch } from "../protocol/types";
-import { registerEsmWidget } from "./registry";
+import { registerEsmWidget, unregisterWidget } from "./registry";
 
 const manifests = new Map<string, WidgetDef>();
+// Types this module registered into the component registry (esm widgets only),
+// so a `set` (full replacement) can drop the stale ones without touching builtins.
+const esmRegistered = new Set<string>();
 
 export function registerManifest(manifest: WidgetDef): void {
   manifests.set(manifest.type, manifest);
@@ -29,8 +32,14 @@ export function allManifests(): WidgetDef[] {
   return [...manifests.values()];
 }
 
-/** Drop every recorded manifest. Used by `manifest op:"set"` for a full reset. */
+/**
+ * Drop every recorded manifest AND unregister the esm widgets they brought in
+ * (builtins, registered elsewhere, are untouched). Used by `manifest op:"set"`
+ * for a full reset.
+ */
 export function clearManifests(): void {
+  for (const type of esmRegistered) unregisterWidget(type);
+  esmRegistered.clear();
   manifests.clear();
 }
 
@@ -46,6 +55,7 @@ export function registerEsmWidgetsFromManifests(
     registerManifest(manifest);
     if (manifest.entry?.kind === "esm" && manifest.entry.source) {
       registerEsmWidget(manifest.type, manifest.entry.source, importer);
+      esmRegistered.add(manifest.type);
     }
   }
 }

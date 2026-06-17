@@ -74,6 +74,11 @@ export function registerEsmWidget(
   });
 }
 
+/** Remove a registered widget (used when a manifest `set` drops it). */
+export function unregisterWidget(type: string): void {
+  registry.delete(type);
+}
+
 export function resolveWidget(type: string): RegisteredWidget | undefined {
   return registry.get(type);
 }

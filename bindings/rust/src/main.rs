@@ -24,6 +24,7 @@ fn kind_of(body: &Body) -> &'static str {
     match body {
         Body::Blueprint(_) => "blueprint",
         Body::State(_) => "state",
+        Body::Manifest(_) => "manifest",
         Body::Event(_) => "event",
         Body::Error(_) => "error",
         Body::Intent(_) => "intent",
