@@ -66,10 +66,12 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 ## 3. 下一步任务（按建议顺序）
 
-### A. esm 动态加载 + manifest 注册表（第三方接入前置）
-- **已落地**：`registerEsmWidget(type, source, importer?)`（动态 `import` → `default` 工厂 → module widget）+ `src/registry/manifests.ts`（manifest 注册表 + `registerEsmWidgetsFromManifests`）+ 单测（importer 可注入）。WidgetHost 的 module 路径已能渲染 esm widget。
-- **剩余**：把 manifest 流接入 `App`——收到 Gateway/blueprint 带来的 manifests 时自动 `registerEsmWidgetsFromManifests`；出一个真实 esm 样例端到端（含 capability 展示/同意，见 E）。
-- 关键文件：`src/registry/`、`src/App.vue`。
+### A. esm 动态加载 + manifest 下发（第三方接入前置）— ✅ 完成
+- **已落地**：`registerEsmWidget` + `manifests.ts`（注册表 + `registerEsmWidgetsFromManifests` + `applyManifestMessage`）+ `setDefaultEsmImporter`（全局可覆盖导入器）。
+- **协议加 `manifest` 下行消息**（schema + Rust + TS 三处对齐）：`op:set` 全替 / `op:patch` 按 `type` 增量 upsert（注意：此 `patch` = manifests 数组 upsert，非 RFC6902）。
+- **App 接线**：先处理 `manifest` 再处理 `blueprint`（渲染器只在 mount 解析一次类型，须先注册）。
+- **esm 端到端样例**：MockBus 广告第三方 `acme.status-pill`（esm），`main.ts` 用 `setDefaultEsmImporter` 把 `demo:` 源映射到本地模块（demo 不需网络）；`App.manifest.test.ts` + `manifests.test.ts` 覆盖顺序/upsert。
+- **剩余（移交 E）**：启用第三方 esm 前的 capability 展示/同意 UI。
 
 ### B. 接真实 AgentBus（替 MockBus）
 - 做：实现 `TauriBus`（或 `HttpBus`），经 Tauri IPC / HTTP-SSE 连 AIRP-Gateway，跑同一套 `AgentBus` 接口。

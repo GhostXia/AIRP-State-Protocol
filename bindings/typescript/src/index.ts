@@ -35,6 +35,7 @@ export type Body =
   // ---- downstream: gateway -> ui ----
   | BlueprintMsg
   | StateMsg
+  | ManifestMsg
   | EventMsg
   | ErrorMsg
   // ---- upstream: ui -> gateway ----
@@ -67,6 +68,26 @@ export interface StateMsg {
   state?: Json;
   /** Present when `op === "patch"`. */
   patch?: JsonPatch;
+}
+
+/**
+ * DOWNSTREAM. Deliver widget manifests so the UI can auto-register widgets it
+ * cannot yet render — the OPEN extension contract over the wire.
+ *
+ * Each entry is a {@link WidgetDef} (third-party under its own namespace, or
+ * `core.*` first-party). `op === "set"` replaces the UI's full known-manifest
+ * set; `op === "patch"` upserts the given subset by `type` (the incremental
+ * form — an upsert of `manifests`, not an RFC 6902 JSON Patch; the Gateway can
+ * ship only diffs, keeping Token low). The UI should process a manifest BEFORE
+ * any blueprint that references its types, since the renderer resolves a widget
+ * type once at mount.
+ */
+export interface ManifestMsg {
+  kind: "manifest";
+  /** `"set"` = full replacement; `"patch"` = incremental upsert by `type`. */
+  op: SetOrPatch;
+  /** Manifests to set or upsert. */
+  manifests: WidgetDef[];
 }
 
 /** DOWNSTREAM. Fire-and-forget event (toast, sfx, navigate, ...). */
@@ -173,9 +194,9 @@ export interface WidgetInstance {
 /**
  * A widget manifest as published in the registry — the OPEN extension contract.
  *
- * Not part of the wire envelope; used by Gateway/UI registries. Any third party
- * can ship a widget by publishing a manifest under its own namespace (see
- * `type`). Mirrors `schema/widget-manifest.schema.json`.
+ * Carried to the UI by a {@link ManifestMsg}; any third party can ship a widget
+ * by publishing a manifest under its own namespace (see `type`). Mirrors
+ * `schema/widget-manifest.schema.json`.
  */
 export interface WidgetDef {
   /**
@@ -249,10 +270,11 @@ export function isKind<K extends Body["kind"]>(
 }
 
 /** True for messages a UI renders (downstream). */
-export function isDownstream(body: Body): body is BlueprintMsg | StateMsg | EventMsg | ErrorMsg {
+export function isDownstream(body: Body): body is BlueprintMsg | StateMsg | ManifestMsg | EventMsg | ErrorMsg {
   return (
     body.kind === "blueprint" ||
     body.kind === "state" ||
+    body.kind === "manifest" ||
     body.kind === "event" ||
     body.kind === "error"
   );

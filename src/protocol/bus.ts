@@ -6,7 +6,7 @@
  * backend; swap it for the real bus when wiring the Tauri core.
  */
 
-import type { Envelope, Blueprint } from "./types";
+import type { Envelope, Blueprint, WidgetDef } from "./types";
 
 export type EnvelopeHandler = (env: Envelope) => void;
 
@@ -22,6 +22,27 @@ function env(src: string, body: Envelope["body"]): Envelope {
   return { v: 1, id: `m${++seq}`, ts: Date.now(), src, body };
 }
 
+/**
+ * A third-party widget the UI cannot render yet. The MockBus advertises it via a
+ * downstream `manifest` so the UI auto-registers an esm loader for it before the
+ * blueprint arrives — exactly how a real Gateway would onboard a third-party
+ * widget. `source` is a local specifier; `main.ts` maps it to the in-repo module
+ * so the demo needs no network.
+ */
+const SAMPLE_MANIFESTS: WidgetDef[] = [
+  {
+    type: "acme.status-pill",
+    version: "1.0.0",
+    title: "状态胶囊",
+    description: "Third-party esm sample: a status pill with a toggle intent.",
+    entry: { kind: "esm", source: "demo:acme/status-pill" },
+    intents: ["status.toggle"],
+    capabilities: ["read:state"],
+    author: "Acme",
+    license: "MIT OR Apache-2.0",
+  },
+];
+
 const SAMPLE_BLUEPRINT: Blueprint = {
   version: "bp-sample",
   profile: "rp:demo",
@@ -31,7 +52,7 @@ const SAMPLE_BLUEPRINT: Blueprint = {
     areas: [
       { id: "main", widgets: ["w-chat"] },
       { id: "sidebar", widgets: ["w-emotion", "w-clock"], props: { side: "right" } },
-      { id: "tools", widgets: ["w-inventory", "w-quest"], props: { side: "right" } },
+      { id: "tools", widgets: ["w-inventory", "w-quest", "w-status"], props: { side: "right" } },
     ],
   },
   widgets: [
@@ -40,6 +61,7 @@ const SAMPLE_BLUEPRINT: Blueprint = {
     { id: "w-clock", type: "core.clock", state: "w-emotion" },
     { id: "w-inventory", type: "core.inventory", state: "w-inventory", capabilities: ["read:state"] },
     { id: "w-quest", type: "core.quest", state: "w-quest", capabilities: ["read:state"] },
+    { id: "w-status", type: "acme.status-pill", state: "w-status", capabilities: ["read:state"] },
   ],
 };
 
@@ -64,13 +86,24 @@ export class MockBus implements AgentBus {
           }),
         );
       }
+      // Toggle the third-party status pill's `on` flag — round-trips the esm
+      // widget's intent through the bus back into its own state slice.
+      if (e.body.name === "status.toggle") {
+        this.emit(
+          env("gateway", { kind: "state", scope: "w-status", op: "patch", patch: [{ op: "replace", path: "/on", value: true }] }),
+        );
+      }
     }
   }
 
   subscribe(handler: EnvelopeHandler): () => void {
     this.handlers.add(handler);
     // Prime the session on the next tick so subscribers are attached.
+    // Manifests first: the renderer resolves a widget type once at mount, so a
+    // third-party esm widget must be registered before the blueprint that
+    // references it arrives.
     queueMicrotask(() => {
+      this.emit(env("gateway", { kind: "manifest", op: "set", manifests: SAMPLE_MANIFESTS }));
       this.emit(env("gateway", { kind: "blueprint", op: "set", blueprint: SAMPLE_BLUEPRINT }));
       this.emit(
         env("gateway", {
@@ -96,6 +129,9 @@ export class MockBus implements AgentBus {
           op: "set",
           state: { quests: [{ id: "q1", title: "找到接头人", status: "active" }, { id: "q2", title: "抵达旧城区", status: "done" }] },
         }),
+      );
+      this.emit(
+        env("gateway", { kind: "state", scope: "w-status", op: "set", state: { label: "在线", on: false } }),
       );
       setTimeout(() => {
         this.emit(env("agent:narrator", { kind: "state", scope: "w-emotion", op: "patch", patch: [{ op: "replace", path: "/emotion", value: 80 }, { op: "replace", path: "/label", value: "心动" }] }));
