@@ -51,18 +51,30 @@
 | #6 | 框架无关 `mount` 组件接口 + 错误隔离 + 非 Vue 样例(clock) + 责任边界 SECURITY.md |
 | #7 | README 置顶「通用」理念 |
 | #8 | LICENSE 文件 + 元数据，与 AIRP-Gateway 看齐（MIT OR Apache-2.0） |
+| #9 | docs：PLAN.md 路线图（现状 / 任务 / 规则 / 文件地图） |
+| #10 | docs：README「乐高，不是套件」——独立用法置顶，生态图降级为可选 |
+| #11 | docs(plan)：独立用法实操 + 跨仓库框架同步任务（G / H） |
+| #12 | feat：esm 动态加载 widget（`registerEsmWidget` + manifest 注册表 + 单测） |
+| #13 | docs(plan)：愿景与未来展望 + 里程碑路线图 |
+| #14 | feat：第一方 widget 组件 memory/inventory/quest/map/card |
+| #15 | docs(examples)：独立用法三例（protocol-only / custom-bus / standalone-widget） |
+| #16 | docs(plan)：记录 Ironsmith 外部参考 |
+| #17 | feat：**manifest 线上下发（任务 A 完成）** + 审计修复（op 语义统一 / CLI match / 注销 esm / 断言） |
 
 CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 examples + widget manifests) · `ui`(vue-tsc + vite build + vitest)。`release-exe.yml` 手动触发，已验证产出 Windows .exe。
 
 ## 2. 已完成
 
-- [x] State Protocol v1：Envelope / Body(blueprint·state·event·error·intent·subscribe·hello·ack) / Blueprint / WidgetInstance / Capability / RFC6902 patch。三处对齐：schema(真相) + Rust 绑定 + TS 绑定。
+- [x] State Protocol v1：Envelope / Body(blueprint·state·**manifest**·event·error·intent·subscribe·hello·ack) / Blueprint / WidgetInstance / Capability / RFC6902 patch。三处对齐：schema(真相) + Rust 绑定 + TS 绑定。
 - [x] `AgentBus` trait（Rust，进程内契约）。
 - [x] 开放 widget 框架：命名空间 manifest（`core.*` 保留）+ CI 校验 + 作者指南。
 - [x] UI 运行时：Widget Registry（vue + module 双类型）、BlueprintRenderer、WidgetHost（含错误隔离）、按 scope 响应式状态 + patch、MockBus。
 - [x] 框架无关组件接口 `WidgetModule`/`WidgetContext`（`mount`/`unmount`）。
 - [x] 责任边界政策（不审核插件，用户自担；宿主守 capability/秘密/同意/错误隔离）。
-- [x] 单测：store(patch) + registry。
+- [x] **esm 动态加载 + manifest 线上下发（任务 A）**：`manifest` 下行消息 + manifest 注册表 + `setDefaultEsmImporter` + App 接线（manifest 先于 blueprint）+ 端到端 esm demo（`acme.status-pill`）。
+- [x] **第一方 widget 组件**：chat/emotion/memory/inventory/quest/map/card + clock(module)。
+- [x] **独立用法示例**：`examples/standalone/`（protocol-only / custom-bus / standalone-widget），CI 验证。
+- [x] 单测：store(patch) + registry + manifests + builtins + standalone。
 
 ## 3. 下一步任务（按建议顺序）
 
