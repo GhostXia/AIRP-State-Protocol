@@ -490,7 +490,9 @@ mod tests {
         // discriminator flattened onto the body
         assert!(text.contains("\"kind\":\"manifest\""));
         assert!(text.contains("\"acme.status-pill\""));
-        assert!(text.contains("\"status-pill.mjs\""));
+        // the esm source survives serialization (substring, not a quoted token —
+        // it is part of the full "https://.../status-pill.mjs" URL)
+        assert!(text.contains("status-pill.mjs"));
 
         let back: Envelope = serde_json::from_str(&text).unwrap();
         assert_eq!(env, back);
