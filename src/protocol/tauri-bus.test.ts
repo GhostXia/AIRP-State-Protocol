@@ -24,7 +24,7 @@ describe("TauriBus", () => {
   });
 
   it("subscribe forwards events; unsubscribe stops and unlistens", async () => {
-    let emit: ((env: Envelope) => void) | null = null;
+    let emit: (env: Envelope) => void = () => {};
     let unlistened = false;
     const transport: TauriTransport = {
       invoke: async () => {},
@@ -40,7 +40,7 @@ describe("TauriBus", () => {
     const off = bus.subscribe((e) => seen.push(e.body.kind));
     await tick();
 
-    emit?.(helloEnvelope());
+    emit(helloEnvelope());
     expect(seen).toEqual(["hello"]);
 
     off();
@@ -48,7 +48,7 @@ describe("TauriBus", () => {
     expect(unlistened).toBe(true);
 
     // after unsubscribe, further events are ignored
-    emit?.(helloEnvelope());
+    emit(helloEnvelope());
     expect(seen).toEqual(["hello"]);
   });
 });
