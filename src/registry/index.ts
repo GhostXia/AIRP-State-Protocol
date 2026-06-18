@@ -46,3 +46,12 @@ export {
   registerEsmWidgetsFromManifests,
   applyManifestMessage,
 } from "./manifests";
+export {
+  needsConsent,
+  canMount,
+  effectiveCapabilities,
+  grant,
+  revoke,
+  isGranted,
+  clearGrants,
+} from "./consent";
