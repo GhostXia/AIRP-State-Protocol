@@ -101,10 +101,10 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **已落地**：`src/protocol/tauri-bus.ts` 的 `TauriBus`（`dispatch`→`invoke("airp_dispatch")`，`subscribe`→`listen("airp:envelope")`），transport 可注入 → 逻辑单测覆盖（`tauri-bus.test.ts`）；`createTauriTransport()` 动态 import `@tauri-apps/api`。
 - **剩余（运行时，未验证清单）**：① Rust 核 `airp_dispatch` 命令 + `airp:envelope` 事件桥（src-tauri）；② App 在 Tauri 环境选 `TauriBus`、否则 `MockBus`；③ 真连 Gateway 跑通。需 Gateway 暴露 State Protocol 端点。
 
-### C. 聊天虚拟滚动 + 历史窗口分页（性能契约硬约束）
-- 做：ChatWidget 上虚拟滚动（vue-virtual-scroller / TanStack Virtual）；`chat.loadMore` intent 向 Gateway 拉历史窗口；全量历史不常驻前端。
-- 关键文件：`src/widgets/ChatWidget.vue`、`bus`/Gateway 分页。
-- 验收：perf spike（背景 §6.4）——10 万条假消息，滚动 ~60fps、内存封顶、流式追加不卡。
+### C. 聊天虚拟滚动 + 历史窗口分页（性能契约硬约束）— 进行中
+- **已落地（基础代码）**：自写定高窗口化 `src/widgets/virtual-window.ts`（纯函数 `computeWindow`，无第三方依赖）+ 单测；ChatWidget 改为只渲染视口切片 + 上下 spacer；滚到顶发 `chat.loadMore` intent。
+- **剩余（运行时，未验证清单）**：perf spike（背景 §6.4）——10 万条假消息，滚动 ~60fps、内存封顶、流式追加不卡（需浏览器，建议尽早手动跑）；Gateway 侧历史窗口分页（MockBus 暂忽略 `chat.loadMore`）。
+- 备注：定高方案是骨架；若需变高消息再换测量式/虚拟库。
 
 ### D. iframe sandbox（不可信 widget 可选隔离）
 - 做：`entry.sandbox=true` → 把 esm widget 装进沙箱 iframe，`postMessage` 转发同一套 `WidgetContext`（getState/onState/emit）。
