@@ -76,6 +76,18 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - [x] **独立用法示例**：`examples/standalone/`（protocol-only / custom-bus / standalone-widget），CI 验证。
 - [x] 单测：store(patch) + registry + manifests + builtins + standalone。
 
+## 2.5 工作策略与未验证清单
+
+**策略（2026-06）**：基础代码先行，运行时验证后置到调试阶段。护栏三条——① 凡能 CI 验的（类型/构建/单测/schema）**不后置**，全程守住；② 纯运行时项（真 Gateway 连通、浏览器帧率、视觉）登记到下方清单，调试阶段照单逐项过；③ **性能 spike 提前**（晚发现 = 返工架构）。
+
+**未验证清单（运行时，待调试阶段）**
+
+- [ ] **B**：Rust 核 `airp_dispatch` 命令 + `airp:envelope` 事件桥（src-tauri）；App 在 Tauri 环境选 `TauriBus`；真连 Gateway 端到端。
+- [ ] **C（性能 spike，尽早）**：10 万条假消息，虚拟滚动 ~60fps、内存封顶、流式追加不卡（背景 §6.4）。
+- [ ] **esm 第三方真加载**：从真实远程 `source` `import()` 一个外部 widget 并渲染（当前仅本地映射 demo + 注入 importer 单测）。
+- [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。
+- [ ] **E**：未授权 capability 调用被拒；启用前同意 UI。
+
 ## 3. 下一步任务（按建议顺序）
 
 ### A. esm 动态加载 + manifest 下发（第三方接入前置）— ✅ 完成
@@ -85,10 +97,9 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **esm 端到端样例**：MockBus 广告第三方 `acme.status-pill`（esm），`main.ts` 用 `setDefaultEsmImporter` 把 `demo:` 源映射到本地模块（demo 不需网络）；`App.manifest.test.ts` + `manifests.test.ts` 覆盖顺序/upsert。
 - **剩余（移交 E）**：启用第三方 esm 前的 capability 展示/同意 UI。
 
-### B. 接真实 AgentBus（替 MockBus）
-- 做：实现 `TauriBus`（或 `HttpBus`），经 Tauri IPC / HTTP-SSE 连 AIRP-Gateway，跑同一套 `AgentBus` 接口。
-- 关键文件：`src/protocol/bus.ts`（新增实现，保留 MockBus 作 dev/test）、`src-tauri/`（IPC 桥）。需 Gateway 暴露 State Protocol 端点。
-- 验收：UI ↔ Gateway 实时跑通 blueprint + state set/patch + intent。
+### B. 接真实 AgentBus（替 MockBus）— 进行中
+- **已落地**：`src/protocol/tauri-bus.ts` 的 `TauriBus`（`dispatch`→`invoke("airp_dispatch")`，`subscribe`→`listen("airp:envelope")`），transport 可注入 → 逻辑单测覆盖（`tauri-bus.test.ts`）；`createTauriTransport()` 动态 import `@tauri-apps/api`。
+- **剩余（运行时，未验证清单）**：① Rust 核 `airp_dispatch` 命令 + `airp:envelope` 事件桥（src-tauri）；② App 在 Tauri 环境选 `TauriBus`、否则 `MockBus`；③ 真连 Gateway 跑通。需 Gateway 暴露 State Protocol 端点。
 
 ### C. 聊天虚拟滚动 + 历史窗口分页（性能契约硬约束）
 - 做：ChatWidget 上虚拟滚动（vue-virtual-scroller / TanStack Virtual）；`chat.loadMore` intent 向 Gateway 拉历史窗口；全量历史不常驻前端。
