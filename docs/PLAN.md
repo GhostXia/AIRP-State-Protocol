@@ -140,7 +140,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - 参考：Ironsmith 的「沙箱 + 代码签名」对待 AI/第三方代码（见 §7）。
 
 ### E. capability 强制 + 启用同意 — 进行中
-- **已落地（基础代码）**：`src/registry/consent.ts`——`needsConsent`（仅 esm 需）/`canMount`（builtin 恒可，esm 须 `grant`）/`effectiveCapabilities`（未授权返回空，授权后给 manifest 声明的 caps）+ 单测；WidgetHost 接入同意闸门:gated 时显示「来源 + 申请权限 + 授权并加载」，授权后才 mount；`WidgetContext.capabilities` 只下发已同意的权限。
+- **已落地（基础代码）**：`src/registry/consent.ts`——`needsConsent`（仅 esm 需）/`canMount`（builtin 恒可，esm 须 `grant`）/`effectiveCapabilities`（未授权返回空，授权后给 manifest 声明的 caps）+ 单测；WidgetHost 接入同意闸门:gated 时显示「来源 + 申请权限 + 授权并加载」，授权后才 mount；`WidgetContext.capabilities` 只下发已同意的权限。授权绑定 `{type, version, source}` 身份——manifest 换源/升版不继承旧授权（应审计 §2.6 风险）。
 - **剩余**：Gateway 侧对 capability 的真实强制（UI 只能限制自己下发的；越权工具调用最终由 Gateway 拒）；同意持久化（记住已授权）。
 
 ### F. 补齐第一方 widget 组件

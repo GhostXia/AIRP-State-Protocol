@@ -23,7 +23,7 @@ const manifest = getManifest(props.instance.type);
 const failed = ref<string | null>(null);
 
 // esm (third-party) widget that the user hasn't approved yet → gate it.
-const gated = computed(() => !!manifest && needsConsent(manifest) && !isGranted(props.instance.type));
+const gated = computed(() => !!manifest && needsConsent(manifest) && !isGranted(manifest));
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -32,7 +32,7 @@ function onIntent(name: string, params?: Json): void {
   emit("intent", name, params);
 }
 function approve(): void {
-  if (manifest) grant(manifest.type);
+  if (manifest) grant(manifest);
 }
 
 // --- kind: vue (native component) ---
