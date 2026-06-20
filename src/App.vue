@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, shallowRef } from "vue";
 import type { Blueprint, Envelope, Json } from "./protocol/types";
 import { MockBus } from "./protocol/bus";
-import { stateStore, setState, patchState } from "./state/store";
+import { stateStore, setState, patchState, applyJsonPatch } from "./state/store";
 import { registerBuiltins, applyManifestMessage } from "./registry";
 import BlueprintRenderer from "./components/BlueprintRenderer.vue";
 
@@ -22,8 +22,15 @@ function onEnvelope(e: Envelope): void {
   // the blueprint that references it arrives.
   if (body.kind === "manifest") {
     applyManifestMessage(body.op, body.manifests);
-  } else if (body.kind === "blueprint" && body.op === "set" && body.blueprint) {
-    blueprint.value = body.blueprint;
+  } else if (body.kind === "blueprint") {
+    if (body.op === "set" && body.blueprint) {
+      blueprint.value = body.blueprint;
+    } else if (body.op === "patch" && body.patch && blueprint.value) {
+      // shallowRef: patch a clone then reassign so the renderer updates.
+      const next = structuredClone(blueprint.value);
+      applyJsonPatch(next as unknown as Json, body.patch);
+      blueprint.value = next;
+    }
   } else if (body.kind === "state") {
     if (body.op === "set") setState(body.scope, body.state ?? null);
     else if (body.op === "patch" && body.patch) patchState(body.scope, body.patch);

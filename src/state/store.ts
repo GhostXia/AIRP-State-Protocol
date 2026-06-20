@@ -1,7 +1,11 @@
 /**
  * Reactive state store. Holds one value per protocol "scope" (a widget instance
  * id, "session", or dotted path). Updated from downstream `state` messages:
- * `set` replaces a scope, `patch` applies an RFC 6902 subset in place.
+ * `set` replaces a scope, `patch` applies an RFC 6902 JSON Patch in place.
+ *
+ * `applyJsonPatch` implements the full op set (add/remove/replace/move/copy/test)
+ * and is reused for `blueprint op:patch`. Note: application is in-place and not
+ * transactional — a failing `test` throws after earlier ops have applied.
  *
  * Performance contract: the full history lives in the Gateway. This store only
  * holds the live windowed slice the UI currently renders.
@@ -20,7 +24,11 @@ export function patchState(scope: string, patch: JsonPatch): void {
   if (stateStore[scope] == null || typeof stateStore[scope] !== "object") {
     stateStore[scope] = {};
   }
-  const root = stateStore[scope];
+  applyJsonPatch(stateStore[scope], patch);
+}
+
+/** Apply an RFC 6902 JSON Patch document to `root` in place. */
+export function applyJsonPatch(root: Json, patch: JsonPatch): void {
   for (const op of patch) applyOp(root, op);
 }
 
@@ -31,37 +39,79 @@ function pointerTokens(path: string): string[] {
     .map((t) => t.replace(/~1/g, "/").replace(/~0/g, "~"));
 }
 
-// RFC 6902 subset: add / remove / replace (covers what the protocol's patches
-// need). move/copy/test are intentionally not implemented in the scaffold.
-function applyOp(root: Json, op: PatchOp): void {
-  const toks = pointerTokens(op.path);
-  if (toks.length === 0) return;
+function getAtPointer(root: Json, toks: string[]): Json | undefined {
+  let cur: unknown = root;
+  for (const t of toks) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[t];
+  }
+  return cur as Json | undefined;
+}
 
+function resolveParent(root: Json, toks: string[]): { parent: any; key: string } | null {
   let parent: any = root;
   for (let i = 0; i < toks.length - 1; i++) {
     parent = parent?.[toks[i]];
-    if (parent == null) return;
+    if (parent == null) return null;
   }
-  const key = toks[toks.length - 1];
+  return { parent, key: toks[toks.length - 1] };
+}
+
+function addAt(parent: any, key: string, value: unknown): void {
+  if (Array.isArray(parent)) {
+    if (key === "-") parent.push(value);
+    else parent.splice(Number(key), 0, value);
+  } else {
+    parent[key] = value;
+  }
+}
+
+function removeAt(parent: any, key: string): void {
+  if (Array.isArray(parent)) parent.splice(Number(key), 1);
+  else delete parent[key];
+}
+
+function clone<T>(v: T): T {
+  return v == null ? v : (structuredClone(v) as T);
+}
+
+// Full RFC 6902: add / remove / replace / move / copy / test.
+function applyOp(root: Json, op: PatchOp): void {
+  const toks = pointerTokens(op.path);
+  if (toks.length === 0) return;
+  const target = resolveParent(root, toks);
+  if (!target) return;
+  const { parent, key } = target;
 
   switch (op.op) {
     case "add":
-      if (Array.isArray(parent)) {
-        if (key === "-") parent.push(op.value);
-        else parent.splice(Number(key), 0, op.value);
-      } else {
-        parent[key] = op.value;
-      }
+      addAt(parent, key, op.value);
       break;
     case "replace":
       parent[key] = op.value;
       break;
     case "remove":
-      if (Array.isArray(parent)) parent.splice(Number(key), 1);
-      else delete parent[key];
+      removeAt(parent, key);
       break;
-    default:
-      // move / copy / test: not needed by the scaffold
+    case "copy": {
+      const value = getAtPointer(root, pointerTokens(op.from ?? ""));
+      addAt(parent, key, clone(value));
       break;
+    }
+    case "move": {
+      const fromToks = pointerTokens(op.from ?? "");
+      const value = getAtPointer(root, fromToks);
+      const from = resolveParent(root, fromToks);
+      if (from) removeAt(from.parent, from.key);
+      addAt(parent, key, value);
+      break;
+    }
+    case "test": {
+      const actual = getAtPointer(root, toks);
+      if (JSON.stringify(actual) !== JSON.stringify(op.value)) {
+        throw new Error(`JSON Patch test failed at ${op.path}`);
+      }
+      break;
+    }
   }
 }

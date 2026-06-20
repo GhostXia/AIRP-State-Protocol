@@ -33,4 +33,30 @@ describe("state store", () => {
     patchState("new", [{ op: "add", path: "/k", value: 1 }]);
     expect((stateStore.new as { k: number }).k).toBe(1);
   });
+
+  it("patch copy duplicates a value", () => {
+    setState("cp", { a: 1 });
+    patchState("cp", [{ op: "copy", from: "/a", path: "/b" }]);
+    expect(stateStore.cp).toEqual({ a: 1, b: 1 });
+  });
+
+  it("patch move relocates a value", () => {
+    setState("mv", { a: 1 });
+    patchState("mv", [{ op: "move", from: "/a", path: "/b" }]);
+    expect(stateStore.mv).toEqual({ b: 1 });
+  });
+
+  it("patch test passes when the value matches, then later ops apply", () => {
+    setState("t", { x: 5 });
+    patchState("t", [
+      { op: "test", path: "/x", value: 5 },
+      { op: "replace", path: "/x", value: 9 },
+    ]);
+    expect((stateStore.t as { x: number }).x).toBe(9);
+  });
+
+  it("patch test throws when the value does not match", () => {
+    setState("tf", { x: 5 });
+    expect(() => patchState("tf", [{ op: "test", path: "/x", value: 1 }])).toThrow();
+  });
 });
