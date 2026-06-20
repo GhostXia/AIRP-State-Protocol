@@ -36,20 +36,33 @@ describe("consent gate", () => {
   it("builtin may always mount; esm only after grant", () => {
     expect(canMount(builtin)).toBe(true);
     expect(canMount(esm)).toBe(false);
-    grant(esm.type);
+    grant(esm);
     expect(canMount(esm)).toBe(true);
-    revoke(esm.type);
+    revoke(esm);
     expect(canMount(esm)).toBe(false);
   });
 
   it("withholds capabilities until granted", () => {
     expect(effectiveCapabilities(esm)).toEqual([]);
-    grant(esm.type);
+    grant(esm);
     expect(effectiveCapabilities(esm)).toEqual(["read:state", "call:tool"]);
   });
 
   it("builtin capabilities are available without a grant", () => {
     expect(effectiveCapabilities(builtin)).toEqual(["read:state"]);
-    expect(isGranted(builtin.type)).toBe(false);
+    expect(isGranted(builtin)).toBe(false);
+  });
+
+  it("a changed source does NOT inherit the old grant", () => {
+    grant(esm);
+    expect(canMount(esm)).toBe(true);
+    const moved: WidgetDef = { ...esm, entry: { kind: "esm", source: "https://evil.example.com/x.mjs" } };
+    expect(canMount(moved)).toBe(false);
+  });
+
+  it("a bumped version does NOT inherit the old grant", () => {
+    grant(esm);
+    const bumped: WidgetDef = { ...esm, version: "1.1.0" };
+    expect(canMount(bumped)).toBe(false);
   });
 });
