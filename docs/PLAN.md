@@ -1,7 +1,7 @@
 # AIRP-State-Protocol 推进计划
 
 > 活文档（计划书）：愿景与未来展望、里程碑路线图、当前进度、下一步任务、开放决策与工作规则，方便随时接手。
-> 最后更新：2026-06-13
+> 最后更新：2026-06-19
 
 ## 0. 一句话定位
 
@@ -87,6 +87,33 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - [ ] **esm 第三方真加载**：从真实远程 `source` `import()` 一个外部 widget 并渲染（当前仅本地映射 demo + 注入 importer 单测）。
 - [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。
 - [ ] **E**：未授权 capability 调用被拒；启用前同意 UI。
+
+## 2.6 审计快照（2026-06-19）
+
+**总体判断**：方向清楚，核心价值在 `schema/` + TS/Rust bindings + manifest/registry 这条开放扩展链。当前主要短板不在概念，而在真实运行闭环、安全边界和协议一致性。
+
+**主要风险**
+
+- **真实 AgentBus 尚未闭环**：`src/App.vue` 仍固定使用 `MockBus`；`src-tauri/src/main.rs` 只有空 Tauri shell；`src/protocol/tauri-bus.ts` 已有 TS 侧客户端，但 Rust 核缺 `airp_dispatch` command 和 `airp:envelope` 事件桥。
+- **第三方 widget 安全边界仍偏提示层**：`registerEsmWidget` 默认 `import(source)`，授权后 ESM 跑在宿主 JS 上下文；`WidgetHost` 只限制传给 widget 的 `capabilities` 数组，不能阻止代码访问 DOM、全局对象或同源资源。开放真实远程 ESM 前，必须先落 D/E 的最小安全护栏。
+- **授权粒度过粗**：当前 `grant` 只按 `type` 记忆；若同一 `type` 的 manifest 后续替换 `source` 或 `version`，可能继承旧授权。需要把授权绑定到 `{type, version, source}` 或 source hash，manifest 变化后重新授权。
+- **协议承诺与 UI 实现有偏差**：schema/TS/Rust 允许完整 JSON Patch (`add/remove/replace/move/copy/test`)，但 UI store 只实现 `add/remove/replace`，其他 op 静默忽略；协议支持 `blueprint op:patch`，App 当前只处理 `blueprint op:set`。
+- **运行时 wire 输入缺校验**：真实 Gateway/IPC 输入不能只靠 TS 类型保护。`Envelope`、`Manifest`、`Blueprint` 进入 registry/store 前应做 schema 校验或轻量 runtime guard，未知/非法消息按规范忽略或回 `error`。
+- **可复现性与供应链审计不足**：根目录无 `package-lock.json`，`src-tauri` 无 `Cargo.lock`，CI 使用 `npm install` 在线解析依赖。应用层建议锁定依赖；库发布则明确产物与版本策略。
+
+**建议优先级**
+
+1. **v0.2 先闭环真实链路**：App bus 工厂按环境选择 `TauriBus`/`MockBus`；Rust 核实现 `airp_dispatch` 与 `airp:envelope`；跑通 UI -> Gateway -> state patch -> UI 的最小 RP 会话。
+2. **v0.3 前收紧安全模型**：授权绑定 `type + version + source/hash`；manifest 变更触发重新授权；Gateway 侧强制 capability；iframe sandbox 作为不可信 widget 的默认推荐路径。
+3. **协议语义尽快收敛**：要么完整实现 RFC 6902，要么把 schema/文档降级为当前支持的 patch 子集；补上 `blueprint patch` 或从 v1 表面移除。
+4. **补 runtime 校验与端到端测试**：在 App/Tauri/Gateway 边界加 Envelope 校验；增加一条从 manifest 下发、blueprint 渲染、intent 上行、state patch 回流的 e2e/smoke。
+5. **发布前做可复现构建**：应用层提交 lockfile，CI 改 `npm ci`；`bindings/typescript` 发布前产出 `.d.ts`/JS 或明确纯类型包策略；Rust crate 发布前固定最小支持版本与 cargo publish 检查。
+
+**本次本地验证记录**
+
+- JSON 语法自检通过：20 个 `.json` 文件均可解析。
+- `npm test` / `npm run typecheck` 未跑通：本地无 `node_modules`，`vitest`/`vue-tsc` 不可用。
+- Rust 本地测试未跑通：当前 Windows 环境缺 MSVC `link.exe`；`src-tauri` 在允许联网后可下载依赖，但仍卡在 linker，不能据此判断项目编译失败。
 
 ## 3. 下一步任务（按建议顺序）
 
