@@ -29,9 +29,9 @@
 
 - **v0.1 — 契约 + UI 骨架（当前，基本完成）**
   协议 v1 契约（schema + Rust/TS 绑定）、开放 widget 框架、Tauri+Vue UI 骨架（Registry / Blueprint / 状态+patch / MockBus）、框架无关 `mount` 接口、esm 动态加载、责任边界、LICENSE 对齐、CI 四 job。
-- **v0.2 — 接通真实链路**
-  接真实 AgentBus（Tauri IPC → Gateway，任务 B）；esm 端到端样例 + manifest 流入 App（任务 A 收尾）；聊天虚拟滚动 + perf spike（任务 C）；独立用法示例（任务 G 示例）。
-  *验收*：UI ↔ Gateway ↔ MCP 真跑通一个 RP 会话。
+- **v0.2 — 可打包 + 接通真实链路**
+  **🅿 打包 .exe（Tauri bundle，已提前为本阶段首要任务，见任务 P）**；接真实 AgentBus（Tauri IPC → Gateway，任务 B）；esm 端到端样例 + manifest 流入 App（任务 A 收尾）；聊天虚拟滚动 + perf spike（任务 C）；独立用法示例（任务 G 示例）。
+  *验收*：能产出一个可双击运行的 Windows `.exe`（含内嵌 UI）；UI ↔ Gateway ↔ MCP 真跑通一个 RP 会话。
 - **v0.3 — 安全与生态**
   iframe sandbox（D）；capability 强制 + 同意 UI（E）；补齐第一方 widget（F）；发布绑定到 npm / crates（G 发布）；跨仓库框架措辞同步（H）。
 - **v1.0 — 协议稳定**
@@ -116,6 +116,16 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - Rust 本地测试未跑通：当前 Windows 环境缺 MSVC `link.exe`；`src-tauri` 在允许联网后可下载依赖，但仍卡在 linker，不能据此判断项目编译失败。
 
 ## 3. 下一步任务（按建议顺序）
+
+### P. 打包 .exe（Tauri bundle）— 🅿 高优先（已提前）
+> 决策更新：原「暂不打包 exe」前置约束**解除**；打包提为近期首要,以便尽早产出可分发桌面产物。
+- **做**：
+  1. `src-tauri/tauri.conf.json` 开 `bundle.active: true`,补应用图标(`src-tauri/icons/` 的 `icon.ico`/`png`,可用 `tauri icon` 从一张源图生成)。
+  2. 新增/扩展 CI workflow(手动 `workflow_dispatch`):装 Tauri 系统依赖 → `npm install` + `npm run build`(前端) → `tauri build` → 上传 `.exe`/安装包 artifact。目标 `x86_64-pc-windows`(Windows runner 最稳;或 Linux 交叉 gnu)。
+  3. App 启动选 bus:Tauri 环境用 `TauriBus`,否则 `MockBus`(否则打出来的 exe 仍只是 MockBus demo,需 B 的 Rust 核桥才真用)。
+- **关键文件**：`src-tauri/tauri.conf.json`、`src-tauri/icons/`、`src-tauri/src/main.rs`、`.github/workflows/`(新 tauri-build job)、`src/main.ts`/`App.vue`(bus 工厂)。
+- **验收**：workflow 产出可双击运行的 Windows `.exe`,启动显示样例 UI(先 MockBus 也算达标;真链路随 B 完成)。
+- **前置/未验证**：Tauri 构建需系统依赖 + 图标,CI 偏重;首版 exe 跑的是 MockBus(真 Gateway 闭环属 B,见未验证清单)。
 
 ### A. esm 动态加载 + manifest 下发（第三方接入前置）— ✅ 完成
 - **已落地**：`registerEsmWidget` + `manifests.ts`（注册表 + `registerEsmWidgetsFromManifests` + `applyManifestMessage`）+ `setDefaultEsmImporter`（全局可覆盖导入器）。
