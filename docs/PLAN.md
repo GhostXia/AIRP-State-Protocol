@@ -117,15 +117,11 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 ## 3. 下一步任务（按建议顺序）
 
-### P. 打包 .exe（Tauri bundle）— 🅿 高优先（已提前）
+### P. 打包 .exe（Tauri bundle）— 🅿 高优先 · 进行中
 > 决策更新：原「暂不打包 exe」前置约束**解除**；打包提为近期首要,以便尽早产出可分发桌面产物。
-- **做**：
-  1. `src-tauri/tauri.conf.json` 开 `bundle.active: true`,补应用图标(`src-tauri/icons/` 的 `icon.ico`/`png`,可用 `tauri icon` 从一张源图生成)。
-  2. 新增/扩展 CI workflow(手动 `workflow_dispatch`):装 Tauri 系统依赖 → `npm install` + `npm run build`(前端) → `tauri build` → 上传 `.exe`/安装包 artifact。目标 `x86_64-pc-windows`(Windows runner 最稳;或 Linux 交叉 gnu)。
-  3. App 启动选 bus:Tauri 环境用 `TauriBus`,否则 `MockBus`(否则打出来的 exe 仍只是 MockBus demo,需 B 的 Rust 核桥才真用)。
-- **关键文件**：`src-tauri/tauri.conf.json`、`src-tauri/icons/`、`src-tauri/src/main.rs`、`.github/workflows/`(新 tauri-build job)、`src/main.ts`/`App.vue`(bus 工厂)。
-- **验收**：workflow 产出可双击运行的 Windows `.exe`,启动显示样例 UI(先 MockBus 也算达标;真链路随 B 完成)。
-- **前置/未验证**：Tauri 构建需系统依赖 + 图标,CI 偏重;首版 exe 跑的是 MockBus(真 Gateway 闭环属 B,见未验证清单)。
+- **已落地**：`tauri.conf.json` 开 `bundle.active: true`(targets `nsis`,icon 列表);占位源图 `src-tauri/icon-source.png`(1024²,CI 用 `tauri icon` 生成全套,`src-tauri/icons/` 已 gitignore);手动 workflow `.github/workflows/tauri-build.yml`(windows-latest:`npm install` → `tauri icon` → `tauri build` → 上传 `airp-ui.exe` + NSIS 安装包 artifact)。`src-tauri/Cargo.lock` 已入库(可复现)。
+- **剩余/未验证（运行时）**：手动 dispatch `tauri-build` 跑通(Windows 构建偏重,可能首跑要调依赖/图标);替换占位图标为正式美术；App bus 工厂(Tauri 用 `TauriBus`、否则 `MockBus`)随 B 落地——**首版 exe 跑 MockBus demo,符合验收**。
+- **验收**：workflow 产出可双击运行的 Windows `.exe`,启动显示样例 UI（先 MockBus 即达标）。
 
 ### A. esm 动态加载 + manifest 下发（第三方接入前置）— ✅ 完成
 - **已落地**：`registerEsmWidget` + `manifests.ts`（注册表 + `registerEsmWidgetsFromManifests` + `applyManifestMessage`）+ `setDefaultEsmImporter`（全局可覆盖导入器）。
