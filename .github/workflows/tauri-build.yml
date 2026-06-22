@@ -1,0 +1,50 @@
+name: Tauri build (manual)
+
+# Manual trigger only. Builds the AIRP UI Tauri app into a Windows .exe (raw
+# binary + NSIS installer) and uploads them as artifacts. Icons are generated in
+# CI from src-tauri/icon-source.png (a placeholder; replace with real art later).
+on:
+  workflow_dispatch:
+
+# Opt the bundled JS actions into the Node.js 24 runtime.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-exe:
+    name: Build Windows .exe (Tauri bundle)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - run: npm install
+
+      - name: Generate app icons from the placeholder source
+        run: npx tauri icon src-tauri/icon-source.png
+
+      - name: Build the Tauri app (frontend + bundle)
+        run: npx tauri build
+
+      - name: Upload .exe artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airp-ui-windows
+          path: |
+            src-tauri/target/release/airp-ui.exe
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error

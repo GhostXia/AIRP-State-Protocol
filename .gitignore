@@ -3,6 +3,9 @@
 /src-tauri/target/
 **/*.rs.bk
 
+# Tauri icons are generated in CI from src-tauri/icon-source.png
+/src-tauri/icons/
+
 # Node / TypeScript
 node_modules/
 /dist/
