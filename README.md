@@ -85,11 +85,13 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 
 编译与验证全部在 CI（`.github/workflows/ci.yml`）执行：
 
-- `rust`：`cargo build` + `cargo test`（Linux runner）。
+- `rust`：`cargo build` + `cargo test`（`bindings/rust` 协议绑定，Linux runner）。
+- `tauri`：`cargo build` + `cargo test`（`src-tauri` 桌面壳含 `airp_dispatch`/`airp:envelope` 桥，含 WebKit/GTK 系统依赖 + 前端 `npm run build` 产 `dist`）。
 - `typescript`：`tsc --noEmit`。
-- `schema`：`ajv` 用 schema 校验 `examples/*.json`。
+- `schema`：`ajv` 用 schema 校验 `examples/*.json` 与 `widgets/**/*.json`。
+- `ui`：`vue-tsc` + `vite build` + `vitest`（含 `TauriBus` / bus 工厂 / store patch / registry / standalone 用例）。
 
-> 本地不需安装工具链。
+> 本地不需安装工具链。UI 桌面壳的 `airp_dispatch` command + `airp:envelope` 事件桥已落地（`src-tauri/src/bus.rs`），当前 relay 是 mock，真连 AIRP-Gateway 为运行时验证项。手动 `tauri-build.yml` 产 Windows `.exe`。
 
 ## 状态
 

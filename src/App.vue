@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, shallowRef } from "vue";
+import { onMounted, onUnmounted, shallowRef, ref } from "vue";
 import type { Blueprint, Envelope, Json } from "./protocol/types";
-import { MockBus } from "./protocol/bus";
+import type { AgentBus } from "./protocol/bus";
+import { createBus } from "./protocol/bus-factory";
 import { stateStore, setState, patchState, applyJsonPatch } from "./state/store";
 import { registerBuiltins, applyManifestMessage } from "./registry";
 import BlueprintRenderer from "./components/BlueprintRenderer.vue";
@@ -11,9 +12,16 @@ registerBuiltins();
 
 const blueprint = shallowRef<Blueprint | null>(null);
 
-// MockBus stands in for the AgentBus client (Tauri IPC / HTTP-SSE to Gateway).
-const bus = new MockBus();
+// The bus is picked per environment: Tauri shell → TauriBus over IPC to the
+// Rust core (→ AIRP-Gateway); everywhere else → MockBus (no backend). Built in
+// onMounted because the Tauri transport is async to construct.
+//
+// `disposed` guards the async completion: if the component unmounts before
+// `createBus()` resolves, the late continuation exits without subscribing,
+// so no listener is left attached to a dead instance.
+let bus: AgentBus | null = null;
 let unsubscribe: (() => void) | null = null;
+let disposed = false;
 
 function onEnvelope(e: Envelope): void {
   const body = e.body;
@@ -37,20 +45,49 @@ function onEnvelope(e: Envelope): void {
   }
 }
 
+// Surfaced in the template so a backend failure isn't a silent empty shell.
+const busError = ref<string | null>(null);
+
 function onIntent(name: string, params?: Json): void {
-  void bus.dispatch({
-    v: 1,
-    id: `ui-${Date.now()}`,
-    ts: Date.now(),
-    src: "ui",
-    body: { kind: "intent", name, params },
+  if (!bus) return;
+  // `dispatch` is async on TauriBus (awaits the IPC round-trip) and sync on
+  // MockBus (`void`). Normalize to a promise so a rejection — e.g. the Rust
+  // `airp_dispatch` command returns Err on version mismatch or a serde/IPC
+  // failure — is caught instead of becoming an unhandled promise rejection
+  // and silently dropping the user's intent.
+  Promise.resolve(
+    bus.dispatch({
+      v: 1,
+      id: `ui-${Date.now()}`,
+      ts: Date.now(),
+      src: "ui",
+      body: { kind: "intent", name, params },
+    }),
+  ).catch((err: unknown) => {
+    console.error("[App] dispatch failed:", err);
+    busError.value = String(err ?? "dispatch failed");
   });
 }
 
-onMounted(() => {
-  unsubscribe = bus.subscribe(onEnvelope);
+onMounted(async () => {
+  // `createBus()` is async because the Tauri transport dynamically imports
+  // `@tauri-apps/api`. That import (or the IPC handshake) can reject inside the
+  // shell — without a catch Vue surfaces an unhandled promise rejection and the
+  // user gets an empty shell with no indication of why. Wrap and record it.
+  try {
+    const built = await createBus();
+    // If the component unmounted while the bus was being built, drop the bus
+    // without subscribing — otherwise the listener would outlive the instance.
+    if (disposed) return;
+    bus = built;
+    unsubscribe = bus.subscribe(onEnvelope);
+  } catch (err) {
+    console.error("[App] createBus failed:", err);
+    busError.value = String(err ?? "createBus failed");
+  }
 });
 onUnmounted(() => {
+  disposed = true;
   unsubscribe?.();
 });
 </script>
@@ -61,6 +98,7 @@ onUnmounted(() => {
       <strong>AIRP&nbsp;UI</strong>
       <small>scaffold · {{ blueprint?.theme?.name ?? "—" }}</small>
     </header>
+    <div v-if="busError" class="bus-error">bus: {{ busError }}</div>
     <BlueprintRenderer
       v-if="blueprint"
       :blueprint="blueprint"
@@ -102,6 +140,15 @@ body {
 .loading {
   margin: auto;
   opacity: 0.6;
+}
+.bus-error {
+  margin: 10px 14px;
+  padding: 6px 10px;
+  color: #ffb4b4;
+  background: rgba(255, 80, 80, 0.08);
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  border-radius: 6px;
+  font-size: 13px;
 }
 input,
 button {
