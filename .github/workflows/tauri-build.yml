@@ -10,12 +10,20 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# Least privilege: this workflow only reads the repo and uploads artifacts, so
+# the default write token is unnecessary. checkout also disables credential
+# persistence (zizmor: artipacked).
+permissions:
+  contents: read
+
 jobs:
   build-exe:
     name: Build Windows .exe (Tauri bundle)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -32,7 +40,7 @@ jobs:
             src-tauri/target
           key: cargo-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
 
-      - run: npm install
+      - run: npm ci
 
       - name: Generate app icons from the placeholder source
         run: npx tauri icon src-tauri/icon-source.png

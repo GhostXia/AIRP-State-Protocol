@@ -131,6 +131,14 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **验证**：`vue-tsc --noEmit` 通过；`vitest run` 10 文件 40 用例全绿（含 `bus-factory` / `tauri-bus`）。Rust 侧本轮无改动，`tauri` job 范围不变。
 - **审计结论**：当前 PR 可继续迭代，方向是「收紧边界错误可见性 + bundle 体积」，非破坏性、不改 wire 契约。**未合并**（遵循 PR-only + 不直推 main 规则）。剩余运行时项（真连 Gateway 端到端）仍登记在 §2.5 清单 B。
 
+**第二轮迭代（2026-06-29，CI 供应链收紧）**
+
+对推送后的 PR #27 收集 Gemini + CodeRabbit 两轮 review（针对 1b4daa4 / 7c535b7），逐条核对对 HEAD（464a3ff）是否仍有效：
+
+- 已失效跳过：`bus.rs` chat.send 读 `params.as_str()`（7c535b7 已改读 `v.get("text")`）；`BusRelay` 用 `Mutex`（7c535b7 已改 `OnceLock`+`AtomicU64`）；`main.rs` `log::info!` 静默（7c535b7 已删，Cargo.toml 亦无 `log` 依赖）；`App.vue` 异步 createBus 晚于 unmount（7c535b7 已加 `disposed` 守卫，464a3ff 又包 try/catch）；`bus-factory.test.ts` sentinel 无 finally（已有 try/finally + 注释）。
+- **仍有效、本轮修复**：CodeRabbit 指出 `ci.yml` tauri job（7c535b7 新增）无 `permissions:` 块（默认 `contents: write` 过宽，zizmor: excessive-permissions）且 `actions/checkout` 未设 `persist-credentials: false`（zizmor: artipacked，凭据留在 runner 供后续步骤取用）；同时根目录已入库 `package-lock.json`，`npm install` 在 CI 应改 `npm ci` 锁定可复现。本轮把收紧应用到**全部** workflow：`ci.yml` workflow 级 `permissions: contents: read` + 5 处 checkout 加 `persist-credentials: false` + 根目录两处（tauri 前端 build、ui job）`npm install`→`npm ci`；`tauri-build.yml` 同样收紧 + `npm ci`。`bindings/typescript` 无 lockfile（独立子包），保留 `npm install`；`schema` job 用 `npx --yes`，不动。
+- 验证：本轮仅改 workflow YAML + 文档，无代码逻辑改动；本地无法跑 GitHub Actions，依赖 CI 自验（推送后观察 5 job 是否仍绿）。**未合并**。
+
 ## 3. 下一步任务（按建议顺序）
 
 ### P. 打包 .exe（Tauri bundle）— 🅿 高优先 · 进行中
