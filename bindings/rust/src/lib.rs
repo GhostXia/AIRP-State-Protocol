@@ -280,6 +280,13 @@ pub struct WidgetEntry {
     /// For `EntryKind::Esm`: the module specifier or URL the UI imports.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub source: Option<String>,
+    /// For `EntryKind::Esm`: if true, the host loads this widget inside a
+    /// sandboxed iframe (no `allow-same-origin`) and bridges the
+    /// [`WidgetContext`](crate) over `postMessage`, so the widget cannot touch
+    /// the host DOM/global/same-origin resources. Recommended for untrusted
+    /// third-party widgets (SECURITY.md).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sandbox: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -478,6 +485,7 @@ mod tests {
                     entry: Some(WidgetEntry {
                         kind: EntryKind::Esm,
                         source: Some("https://cdn.example.com/status-pill.mjs".into()),
+                        sandbox: None,
                     }),
                     author: None,
                     homepage: None,

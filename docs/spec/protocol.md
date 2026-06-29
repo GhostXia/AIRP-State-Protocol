@@ -91,13 +91,14 @@ WidgetDef {
   stateSchema?,    // JSON Schema
   capabilities?[], // 申请权限，Gateway 强制
   intents?[],      // 可发出的 intent 名
-  entry?,          // { kind: builtin|esm, source? } UI 如何加载
+  entry?,          // { kind: builtin|esm, source?, sandbox? } UI 如何加载
   author?, homepage?, license?
 }
 ```
 
 规则：
 - **命名空间强制**：`type` 必须含 `.`（`namespace.name`），避免第三方冲突。`core.*` 保留给第一方。
+- **sandbox（可选，esm 专属）**：`entry.sandbox: true` 时，宿主把该 widget 装进 `<iframe sandbox="allow-scripts">`（**无** `allow-same-origin` → opaque origin），`WidgetContext` 经 `postMessage` 桥接，widget 无法触碰宿主 DOM/全局/同源资源（SECURITY.md）。推荐用于不可信第三方 widget；默认 false（in-process esm，与 builtin 同上下文）。详见 task D。
 - 校验入口：`schema/widget-manifest.schema.json`（CI 自动校验 `widgets/**/*.json`）。
 - UI 端注册表按 `WidgetInstance.type` 找到 manifest 并装载组件；Agent / Gateway 无需知道 Vue/React。
 - 贡献流程见 [CONTRIBUTING.md](../../CONTRIBUTING.md) 与 [widget 作者指南](../widget-authoring.md)。

@@ -231,6 +231,13 @@ export interface WidgetEntry {
   kind: EntryKind;
   /** For `kind === "esm"`: the module specifier or URL the UI imports. */
   source?: string;
+  /**
+   * For `kind === "esm"`: if true, the host loads this widget inside a sandboxed
+   * iframe (no `allow-same-origin`) and bridges the {@link WidgetContext} over
+   * `postMessage`, so the widget cannot touch the host DOM/global/same-origin
+   * resources. Recommended for untrusted third-party widgets (SECURITY.md).
+   */
+  sandbox?: boolean;
 }
 
 /** A permission a widget/agent requests; enforced by the Gateway. */

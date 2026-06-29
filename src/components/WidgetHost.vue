@@ -14,6 +14,7 @@ import type { WidgetModule, WidgetContext } from "../registry/widget-module";
 import { resolveWidget } from "../registry/registry";
 import { getManifest } from "../registry/manifests";
 import { needsConsent, isGranted, grant, effectiveCapabilities } from "../registry/consent";
+import { SandboxBridge, createIframeTransport } from "../registry/sandbox-bridge";
 
 const props = defineProps<{ instance: WidgetInstance; state: unknown }>();
 const emit = defineEmits<{ (e: "intent", name: string, params?: Json): void }>();
@@ -24,6 +25,15 @@ const failed = ref<string | null>(null);
 
 // esm (third-party) widget that the user hasn't approved yet → gate it.
 const gated = computed(() => !!manifest && needsConsent(manifest) && !isGranted(manifest));
+
+// A sandboxed esm widget runs inside an opaque-origin iframe (no
+// allow-same-origin); the WidgetContext is bridged over postMessage so it
+// cannot touch host DOM/global/same-origin resources (PLAN task D, SECURITY.md).
+// Only esm widgets whose manifest opts in (`entry.sandbox: true`) take this
+// path; in-process esm stays the default.
+const sandboxed = computed(
+  () => !!manifest && manifest.entry?.kind === "esm" && manifest.entry.sandbox === true,
+);
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -51,6 +61,10 @@ const moduleEl = ref<HTMLElement | null>(null);
 let mod: WidgetModule | null = null;
 let stateCb: ((state: unknown) => void) | null = null;
 let mounted = false;
+
+// --- sandboxed esm: bridged over postMessage to an opaque-origin iframe ---
+const sandboxEl = ref<HTMLElement | null>(null);
+let sandboxBridge: SandboxBridge | null = null;
 
 function makeContext(): WidgetContext {
   return {
@@ -82,17 +96,51 @@ async function mountModule(): Promise<void> {
   }
 }
 
+// Mount the sandboxed widget inside an iframe. The transport is built from
+// the manifest's esm `source`; the bridge proxies WidgetContext over
+// postMessage. Intents/errors surface through the same handlers as in-process.
+async function mountSandbox(): Promise<void> {
+  if (!sandboxed.value || !sandboxEl.value || sandboxBridge) return;
+  const source = manifest?.entry?.source;
+  if (!source) {
+    failed.value = "sandboxed esm widget missing entry.source";
+    return;
+  }
+  try {
+    const transport = createIframeTransport(sandboxEl.value, source);
+    sandboxBridge = new SandboxBridge(
+      transport,
+      (name, params) => emit("intent", name, params),
+      (message) => {
+        failed.value = message;
+      },
+    );
+    await sandboxBridge.mount(props.instance, effectiveCapabilities(manifest!));
+    sandboxBridge.pushState(props.state);
+  } catch (e) {
+    failed.value = errMsg(e);
+  }
+}
+
 // Mount once the module container exists (it only renders after any consent gate
 // passes), so approving a gated widget triggers its mount.
 watch(moduleEl, (el) => {
   if (el) void mountModule();
 }, { immediate: true });
 
+// Same for the sandbox container: only renders when sandboxed + consented.
+watch(sandboxEl, (el) => {
+  if (el) void mountSandbox();
+}, { immediate: true });
+
 watch(
   () => props.state,
   (s) => {
     try {
+      // in-process module widget
       stateCb?.(s);
+      // sandboxed widget: push the new state over the bridge
+      sandboxBridge?.pushState(s);
     } catch (e) {
       failed.value = errMsg(e);
     }
@@ -104,6 +152,12 @@ onBeforeUnmount(() => {
     mod?.unmount?.();
   } catch {
     /* a misbehaving widget must not break teardown */
+  }
+  try {
+    sandboxBridge?.destroy();
+    sandboxBridge = null;
+  } catch {
+    /* same: containment */
   }
 });
 
@@ -136,6 +190,7 @@ onErrorCaptured((e) => {
       :state="state"
       @intent="onIntent"
     />
+    <div v-else-if="sandboxed" ref="sandboxEl" class="widget-sandbox"></div>
     <div v-else-if="reg?.kind === 'module'" ref="moduleEl" class="widget-mount"></div>
     <div v-else class="widget-missing">未注册的 widget：{{ instance.type }}</div>
   </div>
@@ -149,6 +204,15 @@ onErrorCaptured((e) => {
 .widget-mount {
   height: 100%;
   padding: 8px;
+}
+.widget-sandbox {
+  height: 100%;
+  /* the iframe fills this; transparent so host theme shows through */
+}
+.widget-sandbox iframe {
+  border: 0;
+  width: 100%;
+  height: 100%;
 }
 .widget-missing,
 .widget-error {
