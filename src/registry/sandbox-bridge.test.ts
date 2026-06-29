@@ -47,6 +47,18 @@ describe("SandboxBridge", () => {
     bridge.destroy();
   });
 
+  it("mount succeeds when ready arrived BEFORE mount() was called (no race)", async () => {
+    const t = mockTransport();
+    const bridge = new SandboxBridge(t, () => {}, () => {});
+    // The iframe bootstrap fires `ready` before the host gets to mount().
+    t.emit({ kind: "ready" });
+    await bridge.mount(instance(), ["read:state"]);
+    expect(t.sent).toEqual([
+      { kind: "mount", instance: instance(), capabilities: ["read:state"] },
+    ]);
+    bridge.destroy();
+  });
+
   it("mount rejects if ready does not arrive in time", async () => {
     const t = mockTransport();
     const bridge = new SandboxBridge(t, () => {}, () => {});
@@ -137,5 +149,17 @@ describe("sandboxBootstrap", () => {
     // JSON.stringify must escape it.
     const html = sandboxBootstrap('a"b\\c');
     expect(html).toContain('var SRC = "a\\"b\\\\c"');
+  });
+
+  it("buffers state so a slice arriving before onState registration is replayed", () => {
+    // Regression guard: the widget import() is async, so a `state` message can
+    // land before the widget calls onState. The bootstrap must keep the last
+    // value (hasState/lastState) and replay it on registration, instead of the
+    // old window.__sandboxStateCb pattern that silently dropped it.
+    const html = sandboxBootstrap("https://cdn.acme/widget.js");
+    expect(html).toContain("hasState");
+    expect(html).toContain("lastState = msg.state");
+    expect(html).toContain("if (hasState)");
+    expect(html).not.toContain("__sandboxStateCb");
   });
 });

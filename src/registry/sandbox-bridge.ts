@@ -63,7 +63,10 @@ export interface SandboxTransport {
  */
 export class SandboxBridge {
   private destroyed = false;
+  private ready = false;
   private readonly off: () => void;
+  /** mount() resolvers parked until the iframe signals `ready`. */
+  private readyWaiters: Array<() => void> = [];
 
   constructor(
     private readonly transport: SandboxTransport,
@@ -72,37 +75,56 @@ export class SandboxBridge {
   ) {
     this.off = transport.onMessage((msg) => {
       if (this.destroyed) return;
-      if (msg.kind === "intent") this.onIntent(msg.name, msg.params);
+      if (msg.kind === "ready") {
+        // Capture `ready` on the always-on listener (not inside mount()), so a
+        // `ready` arriving BEFORE mount() is called is not lost: the iframe's
+        // bootstrap posts `ready` the instant its srcdoc script runs, which can
+        // race ahead of the host calling mount().
+        if (!this.ready) {
+          this.ready = true;
+          const waiters = this.readyWaiters;
+          this.readyWaiters = [];
+          for (const w of waiters) w();
+        }
+      } else if (msg.kind === "intent") this.onIntent(msg.name, msg.params);
       else if (msg.kind === "error") this.onError(msg.message);
-      // "ready" is handled by mount() awaiting it before sending the mount msg.
     });
   }
 
   /**
-   * Tell the iframe to mount the widget. Resolves once the iframe signals
-   * `ready` (bootstrap loaded), then sends the `mount` message. If the iframe
-   * never signals ready, this rejects after `readyTimeoutMs` (default 5s) so
-   * the host can surface a load failure rather than hang.
+   * Tell the iframe to mount the widget. Resolves once the iframe has signalled
+   * `ready` (bootstrap loaded) — immediately if `ready` already arrived — then
+   * sends the `mount` message. If the iframe never signals ready, this rejects
+   * after `readyTimeoutMs` (default 5s) so the host surfaces a load failure
+   * rather than hanging.
    */
   mount(instance: WidgetInstance, capabilities: Capability[], readyTimeoutMs = 5000): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.destroyed) return reject(new Error("sandbox destroyed"));
+      const sendMount = (): void => {
+        this.transport.postMessage({ kind: "mount", instance, capabilities });
+        resolve();
+      };
+      // Already ready (possibly before this call): mount now, no race window.
+      if (this.ready) {
+        sendMount();
+        return;
+      }
       let done = false;
       const timer = setTimeout(() => {
-        if (!done) {
-          done = true;
-          reject(new Error("sandbox iframe did not signal ready in time"));
-        }
+        if (done) return;
+        done = true;
+        // Drop our waiter so a late `ready` can't fire a rejected mount.
+        this.readyWaiters = this.readyWaiters.filter((w) => w !== waiter);
+        reject(new Error("sandbox iframe did not signal ready in time"));
       }, readyTimeoutMs);
-      const offReady = this.transport.onMessage((msg) => {
-        if (msg.kind === "ready" && !done) {
-          done = true;
-          clearTimeout(timer);
-          offReady();
-          this.transport.postMessage({ kind: "mount", instance, capabilities });
-          resolve();
-        }
-      });
+      const waiter = (): void => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        sendMount();
+      };
+      this.readyWaiters.push(waiter);
     });
   }
 
@@ -142,11 +164,19 @@ export function sandboxBootstrap(source: string): string {
 (function(){
   var SRC = ${safeSource};
   function send(msg){ parent.postMessage(msg, "*"); }
+  // Buffer the latest state: a `state` message can arrive before the widget's
+  // async import() has registered its onState callback. We keep the last value
+  // and replay it on registration, so the first state slice is never dropped.
+  var lastState; var hasState = false; var stateCb = null;
   // WidgetContext proxy: the widget calls these; we translate to messages.
   var ctx = {
     instance: null,
-    getState: function(){ return undefined; }, // sandbox widgets get state via push, not sync read
-    onState: function(cb){ window.__sandboxStateCb = cb; return function(){ window.__sandboxStateCb = null; }; },
+    getState: function(){ return hasState ? lastState : undefined; },
+    onState: function(cb){
+      stateCb = cb;
+      if (hasState) { try { cb(lastState); } catch(e){ send({ kind: "error", message: String(e && e.message || e) }); } }
+      return function(){ if (stateCb === cb) stateCb = null; };
+    },
     emit: function(name, params){ send({ kind: "intent", name: name, params: params }); },
     capabilities: []
   };
@@ -161,7 +191,8 @@ export function sandboxBootstrap(source: string): string {
         return factory().mount(document.body, ctx);
       }).catch(function(e){ send({ kind: "error", message: String(e && e.message || e) }); });
     } else if (msg.kind === "state") {
-      try { if (window.__sandboxStateCb) window.__sandboxStateCb(msg.state); } catch(e){ send({ kind: "error", message: String(e && e.message || e) }); }
+      lastState = msg.state; hasState = true;
+      try { if (stateCb) stateCb(msg.state); } catch(e){ send({ kind: "error", message: String(e && e.message || e) }); }
     }
   });
   send({ kind: "ready" });
