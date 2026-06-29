@@ -60,8 +60,20 @@
 | #15 | docs(examples)：独立用法三例（protocol-only / custom-bus / standalone-widget） |
 | #16 | docs(plan)：记录 Ironsmith 外部参考 |
 | #17 | feat：**manifest 线上下发（任务 A 完成）** + 审计修复（op 语义统一 / CLI match / 注销 esm / 断言） |
+| #18 | docs(plan)：标记任务 A 完成；补录 PR #9–#17 |
+| #19 | feat：`TauriBus`（AgentBus over Tauri IPC）+ 可注入 transport 单测 |
+| #20 | feat：ChatWidget 虚拟滚动（定高窗口化 `computeWindow`） |
+| #21 | feat：esm widget capability 同意闸门（`consent.ts`，任务 E 基础） |
+| #22 | docs(plan)：2026-06-19 审计快照 |
+| #23 | fix：同意绑定 `{type, version, source}` 身份（审计修复） |
+| #24 | fix：store 全量 RFC 6902（move/copy/test）+ blueprint `op:patch` |
+| #25 | docs(plan)：.exe 打包提为首要任务（P） |
+| #26 | feat(P)：Tauri `.exe` 打包开关 + 手动 `tauri-build.yml` + 占位图标（已验证产出 `airp-ui-windows` artifact） |
+| #27 | feat(B)：Rust `airp_dispatch`/`airp:envelope` 桥（`BusRelay` mock）+ App bus 工厂（TauriBus/MockBus）+ `tauri` CI job + `package-lock.json` |
+| #28 | feat(D)：不可信 esm widget 的 iframe 沙箱桥（opaque-origin，postMessage）；合并后修 `ready`/初始 `state` 两处竞态 + 回归测试 |
+| #29 | feat(E)：consent 授权持久化到 `localStorage`（跨 reload，`initGrants`） |
 
-CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 examples + widget manifests) · `ui`(vue-tsc + vite build + vitest)。`release-exe.yml` 手动触发，已验证产出 Windows .exe。
+CI jobs（5 个）：`rust`(协议绑定 cargo build+test) · `tauri`(`src-tauri` 桌面壳 cargo build+test + 前端 `npm run build`) · `typescript`(tsc) · `schema`(ajv 校验 examples + widget manifests) · `ui`(vue-tsc + vite build + vitest)。手动 workflow：`release-exe.yml`（CLI gnu）+ `tauri-build.yml`（windows，已验证产出 Windows `.exe` + NSIS 安装包 artifact）。
 
 ## 2. 已完成
 
@@ -85,8 +97,8 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - [ ] **B**：真连 Gateway 端到端（Rust 核 `airp_dispatch`/`airp:envelope` 桥 + App bus 工厂已落地，`BusRelay` 当前是 mock，待替换为真 Gateway IPC）。
 - [ ] **C（性能 spike，尽早）**：10 万条假消息，虚拟滚动 ~60fps、内存封顶、流式追加不卡（背景 §6.4）。
 - [ ] **esm 第三方真加载**：从真实远程 `source` `import()` 一个外部 widget 并渲染（当前仅本地映射 demo + 注入 importer 单测）。
-- [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。
-- [ ] **E**：未授权 capability 调用被拒；启用前同意 UI。
+- [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。（基础代码已合并 #28；2026-06-29 修复 `ready` 抢跑丢失 + 初始 `state` 在 widget `import()` 前到达被丢两处竞态，加回归测试。真 iframe 远程 `import()` 行为仍待浏览器验证）
+- [ ] **E**：未授权 capability 调用被拒；启用前同意 UI。（同意闸门 + 身份绑定 + 持久化已合并 #21/#23/#29；UI 闸门已落地。Gateway 侧 capability 真实强制仍待运行时）
 
 ## 2.6 审计快照（2026-06-19）
 
@@ -141,10 +153,11 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 ## 3. 下一步任务（按建议顺序）
 
-### P. 打包 .exe（Tauri bundle）— 🅿 高优先 · 进行中
+### P. 打包 .exe（Tauri bundle）— ✅ 基本完成（CI 已产出可运行 exe artifact，#26）
 > 决策更新：原「暂不打包 exe」前置约束**解除**；打包提为近期首要,以便尽早产出可分发桌面产物。
 - **已落地**：`tauri.conf.json` 开 `bundle.active: true`(targets `nsis`,icon 列表);占位源图 `src-tauri/icon-source.png`(1024²,CI 用 `tauri icon` 生成全套,`src-tauri/icons/` 已 gitignore);手动 workflow `.github/workflows/tauri-build.yml`(windows-latest:`npm install` → `tauri icon` → `tauri build` → 上传 `airp-ui.exe` + NSIS 安装包 artifact)。`src-tauri/Cargo.lock` 已入库(可复现)。
-- **剩余/未验证（运行时）**：手动 dispatch `tauri-build` 跑通(Windows 构建偏重,可能首跑要调依赖/图标);替换占位图标为正式美术；App bus 工厂(Tauri 用 `TauriBus`、否则 `MockBus`)随 B 落地——**首版 exe 跑 MockBus demo,符合验收**。
+- **已验证**：手动 dispatch `tauri-build` 跑通(run 27964880152，7m9s)，产出 `airp-ui-windows` artifact（`airp-ui.exe` + NSIS 安装包）；App bus 工厂随 B（#27）落地，首版 exe 跑 MockBus demo。
+- **剩余**：替换占位图标为正式美术。
 - **验收**：workflow 产出可双击运行的 Windows `.exe`,启动显示样例 UI（先 MockBus 即达标）。
 
 ### A. esm 动态加载 + manifest 下发（第三方接入前置）— ✅ 完成
@@ -154,7 +167,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **esm 端到端样例**：MockBus 广告第三方 `acme.status-pill`（esm），`main.ts` 用 `setDefaultEsmImporter` 把 `demo:` 源映射到本地模块（demo 不需网络）；`App.manifest.test.ts` + `manifests.test.ts` 覆盖顺序/upsert。
 - **剩余（移交 E）**：启用第三方 esm 前的 capability 展示/同意 UI。
 
-### B. 接真实 AgentBus（替 MockBus）— 进行中
+### B. 接真实 AgentBus（替 MockBus）— 进行中（①② 已合并 #27，③ 真连 Gateway 待运行时）
 - **已落地**：`src/protocol/tauri-bus.ts` 的 `TauriBus`（`dispatch`→`invoke("airp_dispatch")`，`subscribe`→`listen("airp:envelope")`），transport 可注入 → 逻辑单测覆盖（`tauri-bus.test.ts`）；`createTauriTransport()` 动态 import `@tauri-apps/api`。**① Rust 核 `airp_dispatch` command + `airp:envelope` 事件桥**：`src-tauri/src/bus.rs` 的 `BusRelay`（内置 mock relay：ack 上行 envelope、`intent`→下行 `state` patch 回环）+ `airp_dispatch` command（校验 `v` 后转交 relay）+ `main.rs` 注册 command 并在 `setup` 挂下游订阅；`Cargo.toml` 加 `airp-state-protocol`（本地路径依赖，复用同一套 wire 类型）+ `log`。**② App bus 工厂**：`src/protocol/bus-factory.ts` 的 `createBus()`——按 `__TAURI_INTERNALS__` sentinel 选 `TauriBus`（shell）或 `MockBus`（web/vitest/`vite dev`），`App.vue` 改 `onMounted` 异步建 bus；`bus-factory.test.ts` 覆盖环境判定 + MockBus 路径。
 - **剩余（运行时，未验证清单）**：③ Rust 核 `BusRelay` 当前是 mock（不接 Gateway）——真连 Gateway 时替换 relay guts 即可（`dispatch`/`subscribe_downstream` 表面不变）；真连跑通 UI → core → Gateway → state patch → UI 的最小 RP 会话。需 Gateway 暴露 State Protocol 端点。
 
@@ -163,13 +176,13 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **剩余（运行时，未验证清单）**：perf spike（背景 §6.4）——10 万条假消息，滚动 ~60fps、内存封顶、流式追加不卡（需浏览器，建议尽早手动跑）；Gateway 侧历史窗口分页（MockBus 暂忽略 `chat.loadMore`）。
 - 备注：定高方案是骨架；若需变高消息再换测量式/虚拟库。
 
-### D. iframe sandbox（不可信 widget 可选隔离）— 进行中
-- **已落地（基础代码）**：`WidgetEntry` 加可选 `sandbox: boolean`（schema + TS + Rust 三处对齐）——esm manifest 可声明 `entry.sandbox: true` 走沙箱路径。`src/registry/sandbox-bridge.ts` 的 `SandboxBridge`（宿主侧 postMessage 桥：`mount`/`pushState`/`destroy`，`ready` 超时拒绝，`intent`/`error` 转发）+ `createIframeTransport`（建 `<iframe sandbox="allow-scripts">`，**无** `allow-same-origin` → opaque origin，不能读宿主 DOM/storage/cookie；`srcdoc` 内联 `sandboxBootstrap` 动态 `import(source)` + `ctxProxy` 把 `WidgetContext` 调用翻成 postMessage）+ 单测 10 例（mock transport 覆盖 ready 超时/destroy/状态推送/intent/error/消息隔离；bootstrap 源注入转义）。`WidgetHost.vue` 接入：`sandboxed` computed 对 `entry.sandbox===true` 的 esm 走 iframe 分支，state 推送经桥，unmount 调 `destroy`。安全门：宿主在 `message` 监听里 gate `event.source === iframe.contentWindow`，防邻帧伪造。
+### D. iframe sandbox（不可信 widget 可选隔离）— 进行中（基础代码已合并 #28；真 iframe 远程加载待运行时）
+- **已落地（基础代码）**：`WidgetEntry` 加可选 `sandbox: boolean`（schema + TS + Rust 三处对齐）——esm manifest 可声明 `entry.sandbox: true` 走沙箱路径。`src/registry/sandbox-bridge.ts` 的 `SandboxBridge`（宿主侧 postMessage 桥：`mount`/`pushState`/`destroy`，`ready` 超时拒绝，`intent`/`error` 转发）+ `createIframeTransport`（建 `<iframe sandbox="allow-scripts">`，**无** `allow-same-origin` → opaque origin，不能读宿主 DOM/storage/cookie；`srcdoc` 内联 `sandboxBootstrap` 动态 `import(source)` + `ctxProxy` 把 `WidgetContext` 调用翻成 postMessage）+ 单测 10 例（mock transport 覆盖 ready 超时/destroy/状态推送/intent/error/消息隔离；bootstrap 源注入转义）。`WidgetHost.vue` 接入：`sandboxed` computed 对 `entry.sandbox===true` 的 esm 走 iframe 分支，state 推送经桥，unmount 调 `destroy`。安全门：宿主在 `message` 监听里 gate `event.source === iframe.contentWindow`，防邻帧伪造。**合并后竞态修复（2026-06-29）**：① `ready` 信号改在常驻监听器捕获（不再在 `mount()` 临时注册），iframe 抢先发 `ready` 不再丢失；② bootstrap 缓存最近 `state` 并在 widget 异步 `import()` 完成注册 `onState` 时回放，首帧 state 不再被丢；加 2 个回归测试（early-ready / 缓冲结构）。
 - **剩余（运行时，未验证清单）**：真 iframe 内 `import()` 远程 esm（opaque origin + `allow-same-origin` 缺席下的 import 行为）需浏览器验证；sandbox demo manifest（标 `sandbox: true` 的第三方 widget）落地 + 真渲染；`allow-scripts` 无 `allow-same-origin` 下 iframe 内 `import` 受 CSP/sandbox 限制的边界。当前所有 manifest 均未标 `sandbox`（现有 in-process esm demo 不变），sandbox 为可选能力，不影响现有样例。
 - 验收：沙箱内 widget 无法触碰宿主 DOM/秘密；接口与 in-process 一致（`WidgetContext` 同形）。
 
-### E. capability 强制 + 启用同意 — 进行中
-- **已落地（基础代码）**：`src/registry/consent.ts`——`needsConsent`（仅 esm 需）/`canMount`（builtin 恒可，esm 须 `grant`）/`effectiveCapabilities`（未授权返回空，授权后给 manifest 声明的 caps）+ 单测；WidgetHost 接入同意闸门:gated 时显示「来源 + 申请权限 + 授权并加载」，授权后才 mount；`WidgetContext.capabilities` 只下发已同意的权限。授权绑定 `{type, version, source}` 身份——manifest 换源/升版不继承旧授权（应审计 §2.6 风险）。**同意持久化**：`initGrants(storage?)` 启动时从 `localStorage`（键 `airp:consent-grants`）恢复已存授权，`grant`/`revoke`/`clearGrants` 自动写回，跨 reload 免重授权；存储可注入（单测用 mock，不碰真 localStorage）；未调 `initGrants` 时退化为纯内存（向后兼容）。`main.ts` 启动时调 `initGrants()`。单测 11 例（6 原有 + 5 持久化：grant/revoke/clear 写存储、reload 恢复、无 initGrants 退回内存、corrupted/非数组存储忽略）。
+### E. capability 强制 + 启用同意 — 进行中（同意闸门/身份绑定/持久化已合并 #21/#23/#29；Gateway 侧强制待运行时）
+- **已落地（基础代码）**：`src/registry/consent.ts`——`needsConsent`（仅 esm 需）/`canMount`（builtin 恒可，esm 须 `grant`）/`effectiveCapabilities`（未授权返回空，授权后给 manifest 声明的 caps）+ 单测；WidgetHost 接入同意闸门:gated 时显示「来源 + 申请权限 + 授权并加载」，授权后才 mount；`WidgetContext.capabilities` 只下发已同意的权限。授权绑定 `{type, version, source}` 身份——manifest 换源/升版不继承旧授权（应审计 §2.6 风险）。**同意持久化**：`initGrants(storage?)` 启动时从 `localStorage`（键 `airp:consent-grants`）恢复已存授权，`grant`/`revoke`/`clearGrants` 自动写回，跨 reload 免重授权；存储可注入（单测用 mock，不碰真 localStorage）；未调 `initGrants` 时退化为纯内存（向后兼容）；无 `localStorage` 环境（非 DOM/SSR）`initGrants()` 空操作不抛错（2026-06-29 加固）。`main.ts` 启动时调 `initGrants()`。单测 11 例（6 原有 + 5 持久化：grant/revoke/clear 写存储、reload 恢复、无 initGrants 退回内存、corrupted/非数组存储忽略）。
 - **剩余**：Gateway 侧对 capability 的真实强制（UI 只能限制自己下发的；越权工具调用最终由 Gateway 拒）。
 
 ### F. 补齐第一方 widget 组件
