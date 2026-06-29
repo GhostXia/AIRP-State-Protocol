@@ -10,6 +10,10 @@
  * just its `type`: if a manifest later swaps its `source` or bumps `version`,
  * the old approval does NOT carry over and the user must re-consent.
  *
+ * **Persistence**: grants are saved to `localStorage` (key `airp:consent-grants`)
+ * so they survive page reloads. Call `initGrants()` once at app startup to
+ * restore previously saved grants. The storage is injectable for testing.
+ *
  * Reactive + unit-tested: grants live in a reactive Set so the host re-renders
  * when the user approves; the decision functions are covered in CI.
  */
@@ -20,7 +24,20 @@ import type { WidgetDef, Capability } from "./../protocol/types";
 type ManifestId = Pick<WidgetDef, "type" | "version" | "entry">;
 type ManifestCaps = ManifestId & Pick<WidgetDef, "capabilities">;
 
+/** localStorage key for persisted grants. */
+const STORAGE_KEY = "airp:consent-grants";
+
+/** Injectable storage interface (for testing without real localStorage). */
+export interface ConsentStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
 const granted = reactive(new Set<string>());
+
+/** The storage backend. Defaults to localStorage; override via `initGrants()`. */
+let storage: ConsentStorage | null = null;
 
 /** Identity a grant is bound to: type + version + (esm) source. */
 function grantKey(m: ManifestId): string {
@@ -28,17 +45,57 @@ function grantKey(m: ManifestId): string {
   return `${m.type}@${m.version}#${source}`;
 }
 
+/** Persist the current grant set to storage (if configured). */
+function save(): void {
+  if (!storage) return;
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify([...granted]));
+  } catch {
+    // localStorage may be full or unavailable; degrade gracefully.
+  }
+}
+
+/**
+ * Initialize consent persistence. Loads previously saved grants from storage
+ * and configures future grant/revoke/clear calls to auto-persist.
+ *
+ * Call once at app startup (e.g., in `main.ts` or `App.vue` onMounted).
+ * If never called, consent is in-memory only (backward compatible).
+ *
+ * @param s - Storage backend. Defaults to `localStorage` if omitted.
+ *            Pass a mock in tests to avoid touching the real localStorage.
+ */
+export function initGrants(s?: ConsentStorage): void {
+  storage = s ?? localStorage;
+  try {
+    const raw = storage.getItem(STORAGE_KEY);
+    if (raw) {
+      const keys: unknown = JSON.parse(raw);
+      if (Array.isArray(keys)) {
+        for (const k of keys) {
+          if (typeof k === "string") granted.add(k);
+        }
+      }
+    }
+  } catch {
+    // Corrupted or unavailable; start fresh.
+  }
+}
+
 export function isGranted(manifest: ManifestId): boolean {
   return granted.has(grantKey(manifest));
 }
 export function grant(manifest: ManifestId): void {
   granted.add(grantKey(manifest));
+  save();
 }
 export function revoke(manifest: ManifestId): void {
   granted.delete(grantKey(manifest));
+  save();
 }
 export function clearGrants(): void {
   granted.clear();
+  save();
 }
 
 /** Third-party (esm) widgets need explicit consent; builtin ones do not. */
