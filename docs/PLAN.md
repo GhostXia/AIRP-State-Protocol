@@ -82,7 +82,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 **未验证清单（运行时，待调试阶段）**
 
-- [ ] **B**：Rust 核 `airp_dispatch` 命令 + `airp:envelope` 事件桥（src-tauri）；App 在 Tauri 环境选 `TauriBus`；真连 Gateway 端到端。
+- [ ] **B**：真连 Gateway 端到端（Rust 核 `airp_dispatch`/`airp:envelope` 桥 + App bus 工厂已落地，`BusRelay` 当前是 mock，待替换为真 Gateway IPC）。
 - [ ] **C（性能 spike，尽早）**：10 万条假消息，虚拟滚动 ~60fps、内存封顶、流式追加不卡（背景 §6.4）。
 - [ ] **esm 第三方真加载**：从真实远程 `source` `import()` 一个外部 widget 并渲染（当前仅本地映射 demo + 注入 importer 单测）。
 - [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。
@@ -94,10 +94,10 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 **主要风险**
 
-- **真实 AgentBus 尚未闭环**：`src/App.vue` 仍固定使用 `MockBus`；`src-tauri/src/main.rs` 只有空 Tauri shell；`src/protocol/tauri-bus.ts` 已有 TS 侧客户端，但 Rust 核缺 `airp_dispatch` command 和 `airp:envelope` 事件桥。
+- **真实 AgentBus 尚未闭环**（部分推进 2026-06-29）：`src/App.vue` 已改用 `createBus()` 工厂按环境选 `TauriBus`/`MockBus`；`src-tauri/src/bus.rs` 实现 `airp_dispatch` command + `airp:envelope` 事件桥（`BusRelay`，内置 mock relay）。**剩余**：`BusRelay` 当前是 mock（不接 Gateway），真连 Gateway 时替换 relay guts 即可（表面不变）；端到端 UI→core→Gateway→patch→UI 未运行时验证。
 - **第三方 widget 安全边界仍偏提示层**：`registerEsmWidget` 默认 `import(source)`，授权后 ESM 跑在宿主 JS 上下文；`WidgetHost` 只限制传给 widget 的 `capabilities` 数组，不能阻止代码访问 DOM、全局对象或同源资源。开放真实远程 ESM 前，必须先落 D/E 的最小安全护栏。
 - **授权粒度过粗**：当前 `grant` 只按 `type` 记忆；若同一 `type` 的 manifest 后续替换 `source` 或 `version`，可能继承旧授权。需要把授权绑定到 `{type, version, source}` 或 source hash，manifest 变化后重新授权。
-- **协议承诺与 UI 实现有偏差**：schema/TS/Rust 允许完整 JSON Patch (`add/remove/replace/move/copy/test`)，但 UI store 只实现 `add/remove/replace`，其他 op 静默忽略；协议支持 `blueprint op:patch`，App 当前只处理 `blueprint op:set`。
+- **协议承诺与 UI 实现有偏差**（已修复）：`src/state/store.ts` 的 `applyJsonPatch` 现已实现完整 RFC 6902（`add/remove/replace/move/copy/test`）；`App.vue` 已处理 `blueprint op:patch`（clone→applyJsonPatch→reassign）。剩余偏差：`test` op 非事务性（前置 op 已生效后才抛）。
 - **运行时 wire 输入缺校验**：真实 Gateway/IPC 输入不能只靠 TS 类型保护。`Envelope`、`Manifest`、`Blueprint` 进入 registry/store 前应做 schema 校验或轻量 runtime guard，未知/非法消息按规范忽略或回 `error`。
 - **可复现性与供应链审计不足**：根目录无 `package-lock.json`，`src-tauri` 无 `Cargo.lock`，CI 使用 `npm install` 在线解析依赖。应用层建议锁定依赖；库发布则明确产物与版本策略。
 
@@ -115,6 +115,13 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - `npm test` / `npm run typecheck` 未跑通：本地无 `node_modules`，`vitest`/`vue-tsc` 不可用。
 - Rust 本地测试未跑通：当前 Windows 环境缺 MSVC `link.exe`；`src-tauri` 在允许联网后可下载依赖，但仍卡在 linker，不能据此判断项目编译失败。
 
+**追加本地验证记录（2026-06-29，任务 B ①②）**
+
+- 改动文件：`src-tauri/{Cargo.toml,src/main.rs,src/bus.rs(新增)}`、`src/{App.vue,protocol/bus-factory.ts(新增),protocol/bus-factory.test.ts(新增)}`、`docs/{PLAN.md,README.md}`。
+- Rust 字段对齐已人工核对 `bindings/rust/src/lib.rs`：`AckMsg.ref_`、`IntentMsg.params: Option<Value>`（无 `capabilities`）、`PatchOp.value: Option<Value>`、`SetOrPatch`/`PatchOpKind` 枚举命名。Tauri v2 API 对齐官方文档（`#[tauri::command]` + `tauri::State` + `Emitter::emit` + `generate_handler!` + `Manager::state`）。
+- TS 类型对齐 `AgentBus` 接口；`bus-factory.test.ts` 3 个用例覆盖环境判定 + MockBus 路径 + sentinel 切换（Tauri 分支归运行时清单，不硬测避免 CI flaky）。
+- **CI 验证缺口（待后续 workflow 改动一并补）**：现有 `ci.yml` 的 rust job `working-directory: bindings/rust`，**不编译 `src-tauri`**——本次 Rust 桥改动暂无 CI job 覆盖。按 §5 规则应扩 workflow（加 src-tauri build/test job），但本批按用户指示「先不修改 workflow」，先登记于此，后续 workflow 收编时补 src-tauri 编译验证。
+
 ## 3. 下一步任务（按建议顺序）
 
 ### P. 打包 .exe（Tauri bundle）— 🅿 高优先 · 进行中
@@ -131,8 +138,8 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **剩余（移交 E）**：启用第三方 esm 前的 capability 展示/同意 UI。
 
 ### B. 接真实 AgentBus（替 MockBus）— 进行中
-- **已落地**：`src/protocol/tauri-bus.ts` 的 `TauriBus`（`dispatch`→`invoke("airp_dispatch")`，`subscribe`→`listen("airp:envelope")`），transport 可注入 → 逻辑单测覆盖（`tauri-bus.test.ts`）；`createTauriTransport()` 动态 import `@tauri-apps/api`。
-- **剩余（运行时，未验证清单）**：① Rust 核 `airp_dispatch` 命令 + `airp:envelope` 事件桥（src-tauri）；② App 在 Tauri 环境选 `TauriBus`、否则 `MockBus`；③ 真连 Gateway 跑通。需 Gateway 暴露 State Protocol 端点。
+- **已落地**：`src/protocol/tauri-bus.ts` 的 `TauriBus`（`dispatch`→`invoke("airp_dispatch")`，`subscribe`→`listen("airp:envelope")`），transport 可注入 → 逻辑单测覆盖（`tauri-bus.test.ts`）；`createTauriTransport()` 动态 import `@tauri-apps/api`。**① Rust 核 `airp_dispatch` command + `airp:envelope` 事件桥**：`src-tauri/src/bus.rs` 的 `BusRelay`（内置 mock relay：ack 上行 envelope、`intent`→下行 `state` patch 回环）+ `airp_dispatch` command（校验 `v` 后转交 relay）+ `main.rs` 注册 command 并在 `setup` 挂下游订阅；`Cargo.toml` 加 `airp-state-protocol`（本地路径依赖，复用同一套 wire 类型）+ `log`。**② App bus 工厂**：`src/protocol/bus-factory.ts` 的 `createBus()`——按 `__TAURI_INTERNALS__` sentinel 选 `TauriBus`（shell）或 `MockBus`（web/vitest/`vite dev`），`App.vue` 改 `onMounted` 异步建 bus；`bus-factory.test.ts` 覆盖环境判定 + MockBus 路径。
+- **剩余（运行时，未验证清单）**：③ Rust 核 `BusRelay` 当前是 mock（不接 Gateway）——真连 Gateway 时替换 relay guts 即可（`dispatch`/`subscribe_downstream` 表面不变）；真连跑通 UI → core → Gateway → state patch → UI 的最小 RP 会话。需 Gateway 暴露 State Protocol 端点。
 
 ### C. 聊天虚拟滚动 + 历史窗口分页（性能契约硬约束）— 进行中
 - **已落地（基础代码）**：自写定高窗口化 `src/widgets/virtual-window.ts`（纯函数 `computeWindow`，无第三方依赖）+ 单测；ChatWidget 改为只渲染视口切片 + 上下 spacer；滚到顶发 `chat.loadMore` intent。

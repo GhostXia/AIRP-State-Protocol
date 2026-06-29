@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, shallowRef } from "vue";
 import type { Blueprint, Envelope, Json } from "./protocol/types";
-import { MockBus } from "./protocol/bus";
+import type { AgentBus } from "./protocol/bus";
+import { createBus } from "./protocol/bus-factory";
 import { stateStore, setState, patchState, applyJsonPatch } from "./state/store";
 import { registerBuiltins, applyManifestMessage } from "./registry";
 import BlueprintRenderer from "./components/BlueprintRenderer.vue";
@@ -11,8 +12,10 @@ registerBuiltins();
 
 const blueprint = shallowRef<Blueprint | null>(null);
 
-// MockBus stands in for the AgentBus client (Tauri IPC / HTTP-SSE to Gateway).
-const bus = new MockBus();
+// The bus is picked per environment: Tauri shell → TauriBus over IPC to the
+// Rust core (→ AIRP-Gateway); everywhere else → MockBus (no backend). Built in
+// onMounted because the Tauri transport is async to construct.
+let bus: AgentBus | null = null;
 let unsubscribe: (() => void) | null = null;
 
 function onEnvelope(e: Envelope): void {
@@ -38,6 +41,7 @@ function onEnvelope(e: Envelope): void {
 }
 
 function onIntent(name: string, params?: Json): void {
+  if (!bus) return;
   void bus.dispatch({
     v: 1,
     id: `ui-${Date.now()}`,
@@ -47,7 +51,8 @@ function onIntent(name: string, params?: Json): void {
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
+  bus = await createBus();
   unsubscribe = bus.subscribe(onEnvelope);
 });
 onUnmounted(() => {
