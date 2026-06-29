@@ -64,9 +64,13 @@ function save(): void {
  *
  * @param s - Storage backend. Defaults to `localStorage` if omitted.
  *            Pass a mock in tests to avoid touching the real localStorage.
+ *            If omitted AND `localStorage` is unavailable (non-DOM / SSR),
+ *            this is a no-op and consent stays in-memory — it never throws.
  */
 export function initGrants(s?: ConsentStorage): void {
-  storage = s ?? localStorage;
+  const backend = s ?? (typeof localStorage !== "undefined" ? localStorage : null);
+  if (!backend) return; // no storage available; stay in-memory (backward compatible)
+  storage = backend;
   try {
     const raw = storage.getItem(STORAGE_KEY);
     if (raw) {
