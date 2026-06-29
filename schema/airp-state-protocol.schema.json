@@ -240,7 +240,8 @@
       "additionalProperties": false,
       "properties": {
         "kind": { "type": "string", "enum": ["builtin", "esm"], "description": "`builtin` = bundled in the UI; `esm` = loaded as an ES module." },
-        "source": { "type": "string", "description": "For kind=esm: the module specifier or URL the UI imports." }
+        "source": { "type": "string", "description": "For kind=esm: the module specifier or URL the UI imports." },
+        "sandbox": { "type": "boolean", "default": false, "description": "For kind=esm: if true, the host loads this widget inside a sandboxed iframe (no allow-same-origin) and bridges the WidgetContext over postMessage, so the widget cannot touch the host DOM/global/same-origin resources. Recommended for untrusted third-party widgets (SECURITY.md)." }
       }
     },
     "Capability": {

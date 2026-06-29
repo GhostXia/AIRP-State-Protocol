@@ -139,11 +139,10 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - **剩余（运行时，未验证清单）**：perf spike（背景 §6.4）——10 万条假消息，滚动 ~60fps、内存封顶、流式追加不卡（需浏览器，建议尽早手动跑）；Gateway 侧历史窗口分页（MockBus 暂忽略 `chat.loadMore`）。
 - 备注：定高方案是骨架；若需变高消息再换测量式/虚拟库。
 
-### D. iframe sandbox（不可信 widget 可选隔离）
-- 做：`entry.sandbox=true` → 把 esm widget 装进沙箱 iframe，`postMessage` 转发同一套 `WidgetContext`（getState/onState/emit）。
-- 关键文件：`src/components/WidgetHost.vue`（sandbox 分支）+ 一个 iframe bootstrap。
-- 验收：沙箱内 widget 无法触碰宿主 DOM/秘密；接口与 in-process 一致。
-- 参考：Ironsmith 的「沙箱 + 代码签名」对待 AI/第三方代码（见 §7）。
+### D. iframe sandbox（不可信 widget 可选隔离）— 进行中
+- **已落地（基础代码）**：`WidgetEntry` 加可选 `sandbox: boolean`（schema + TS + Rust 三处对齐）——esm manifest 可声明 `entry.sandbox: true` 走沙箱路径。`src/registry/sandbox-bridge.ts` 的 `SandboxBridge`（宿主侧 postMessage 桥：`mount`/`pushState`/`destroy`，`ready` 超时拒绝，`intent`/`error` 转发）+ `createIframeTransport`（建 `<iframe sandbox="allow-scripts">`，**无** `allow-same-origin` → opaque origin，不能读宿主 DOM/storage/cookie；`srcdoc` 内联 `sandboxBootstrap` 动态 `import(source)` + `ctxProxy` 把 `WidgetContext` 调用翻成 postMessage）+ 单测 10 例（mock transport 覆盖 ready 超时/destroy/状态推送/intent/error/消息隔离；bootstrap 源注入转义）。`WidgetHost.vue` 接入：`sandboxed` computed 对 `entry.sandbox===true` 的 esm 走 iframe 分支，state 推送经桥，unmount 调 `destroy`。安全门：宿主在 `message` 监听里 gate `event.source === iframe.contentWindow`，防邻帧伪造。
+- **剩余（运行时，未验证清单）**：真 iframe 内 `import()` 远程 esm（opaque origin + `allow-same-origin` 缺席下的 import 行为）需浏览器验证；sandbox demo manifest（标 `sandbox: true` 的第三方 widget）落地 + 真渲染；`allow-scripts` 无 `allow-same-origin` 下 iframe 内 `import` 受 CSP/sandbox 限制的边界。当前所有 manifest 均未标 `sandbox`（现有 in-process esm demo 不变），sandbox 为可选能力，不影响现有样例。
+- 验收：沙箱内 widget 无法触碰宿主 DOM/秘密；接口与 in-process 一致（`WidgetContext` 同形）。
 
 ### E. capability 强制 + 启用同意 — 进行中
 - **已落地（基础代码）**：`src/registry/consent.ts`——`needsConsent`（仅 esm 需）/`canMount`（builtin 恒可，esm 须 `grant`）/`effectiveCapabilities`（未授权返回空，授权后给 manifest 声明的 caps）+ 单测；WidgetHost 接入同意闸门:gated 时显示「来源 + 申请权限 + 授权并加载」，授权后才 mount；`WidgetContext.capabilities` 只下发已同意的权限。授权绑定 `{type, version, source}` 身份——manifest 换源/升版不继承旧授权（应审计 §2.6 风险）。
