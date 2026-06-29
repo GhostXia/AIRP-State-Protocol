@@ -15,8 +15,13 @@ const blueprint = shallowRef<Blueprint | null>(null);
 // The bus is picked per environment: Tauri shell → TauriBus over IPC to the
 // Rust core (→ AIRP-Gateway); everywhere else → MockBus (no backend). Built in
 // onMounted because the Tauri transport is async to construct.
+//
+// `disposed` guards the async completion: if the component unmounts before
+// `createBus()` resolves, the late continuation exits without subscribing,
+// so no listener is left attached to a dead instance.
 let bus: AgentBus | null = null;
 let unsubscribe: (() => void) | null = null;
+let disposed = false;
 
 function onEnvelope(e: Envelope): void {
   const body = e.body;
@@ -52,10 +57,15 @@ function onIntent(name: string, params?: Json): void {
 }
 
 onMounted(async () => {
-  bus = await createBus();
+  const built = await createBus();
+  // If the component unmounted while the bus was being built, drop the bus
+  // without subscribing — otherwise the listener would outlive the instance.
+  if (disposed) return;
+  bus = built;
   unsubscribe = bus.subscribe(onEnvelope);
 });
 onUnmounted(() => {
+  disposed = true;
   unsubscribe?.();
 });
 </script>

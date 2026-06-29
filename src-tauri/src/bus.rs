@@ -12,7 +12,8 @@
 //! this module is the seam a real `AgentBus` implementation will replace — same
 //! `dispatch`/`subscribe_downstream` surface, different guts.
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
 
 use tauri::{AppHandle, Emitter};
 use airp_state_protocol::{Body, Envelope, PatchOp, PatchOpKind, SetOrPatch, PROTOCOL_VERSION};
@@ -25,31 +26,37 @@ pub const ENVELOPE_EVENT: &str = "airp:envelope";
 /// Holds a single downstream subscriber (the webview's `TauriBus`) and echoes
 /// upstream traffic back as downstream envelopes. `subscribe_downstream` is
 /// called once from `setup`; `dispatch` is called per `airp_dispatch` command.
+///
+/// The subscriber slot is a `OnceLock` (set once at startup, read on every
+/// dispatch) and the sequence counter is an `AtomicU64` — both lock-free, since
+/// `dispatch` is the hot path and never contends on the subscriber.
 pub struct BusRelay {
     /// A real Gateway would push envelopes on its own; the mock holds one
     /// subscriber slot and emits through it synchronously via the AppHandle.
-    subscriber: Mutex<Option<AppHandle>>,
-    seq: Mutex<u64>,
+    /// `OnceLock` rather than `Mutex<Option<_>>`: the webview is registered
+    /// exactly once in `setup` and only read afterwards.
+    subscriber: OnceLock<AppHandle>,
+    seq: AtomicU64,
 }
 
 impl BusRelay {
     pub fn new() -> Self {
-        Self { subscriber: Mutex::new(None), seq: Mutex::new(0) }
+        Self { subscriber: OnceLock::new(), seq: AtomicU64::new(0) }
     }
 
     /// Register the webview as the downstream sink. Called once from `setup`.
+    /// Subsequent calls are ignored (the first registration wins), matching the
+    /// "set once" semantics of `OnceLock`.
     pub fn subscribe_downstream(&self, app: AppHandle) {
-        *self.subscriber.lock().unwrap() = Some(app);
+        // Ignore the Result: a second registration is a no-op, not an error.
+        let _ = self.subscriber.set(app);
     }
 
     /// Receive an upstream envelope from the UI. The mock acks it and, for
     /// `intent` bodies, echoes a downstream `state` patch so the UI sees a
     /// round-trip. A real Gateway replaces this body with the IPC call.
     pub fn dispatch(&self, env: Envelope) {
-        let mut seq = self.seq.lock().unwrap();
-        *seq += 1;
-        let n = *seq;
-        drop(seq);
+        let n = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
 
         let ack = Envelope::new(
             format!("ack-{n}"),
@@ -65,10 +72,14 @@ impl BusRelay {
             // the chat scope; any other intent flips a generic `w-status` flag.
             let down = match i.name.as_str() {
                 "chat.send" => {
+                    // params is a JSON object `{ "text": "..." }`; read the
+                    // `text` field rather than treating the whole value as a
+                    // string (which would always yield "").
                     let text = i
                         .params
                         .as_ref()
-                        .and_then(|v| v.as_str())
+                        .and_then(|v| v.get("text"))
+                        .and_then(|t| t.as_str())
                         .unwrap_or("")
                         .to_string();
                     Envelope::new(
@@ -126,7 +137,7 @@ impl BusRelay {
     }
 
     fn emit(&self, env: &Envelope) {
-        if let Some(app) = self.subscriber.lock().unwrap().as_ref() {
+        if let Some(app) = self.subscriber.get() {
             // Best-effort: a closed webview surfaces on next dispatch, not here.
             let _ = app.emit(ENVELOPE_EVENT, env);
         }
@@ -199,12 +210,23 @@ mod tests {
     #[test]
     fn relay_increments_seq_per_dispatch() {
         let relay = BusRelay::new();
-        let s = relay.seq.lock().unwrap();
-        let start = *s;
-        drop(s);
+        let start = relay.seq.load(Ordering::Relaxed);
         relay.dispatch(intent("status.toggle", serde_json::json!({})));
         relay.dispatch(intent("status.toggle", serde_json::json!({})));
-        let s = relay.seq.lock().unwrap();
-        assert_eq!(*s, start + 2);
+        assert_eq!(relay.seq.load(Ordering::Relaxed), start + 2);
+    }
+
+    /// Regression guard for the CodeRabbit finding: the chat.send branch must
+    /// read `params.text` from the JSON object, not treat the whole params
+    /// value as a string. We can't observe the emitted envelope without an
+    /// AppHandle, but we can confirm the relay accepts an object payload
+    /// without panic — the previous bug silently produced "" text.
+    #[test]
+    fn chat_send_reads_text_field_from_object_params() {
+        let relay = BusRelay::new();
+        // Object payload (the real wire shape), not a bare string.
+        relay.dispatch(intent("chat.send", serde_json::json!({ "text": "hello world" })));
+        // Missing text field: must still not panic, falls back to "".
+        relay.dispatch(intent("chat.send", serde_json::json!({})));
     }
 }

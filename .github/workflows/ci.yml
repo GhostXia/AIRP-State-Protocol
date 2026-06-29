@@ -30,6 +30,45 @@ jobs:
       - run: cargo build --all-targets
       - run: cargo test
 
+  # Tauri desktop shell (src-tauri). Compiles the Rust core — including the
+  # airp_dispatch/airp:envelope bridge — and runs its unit tests. src-tauri
+  # depends on bindings/rust (path dep) and on the built frontend (../dist, via
+  # tauri.conf.json frontendDist), so we install npm deps and build the UI
+  # before cargo. Tauri's build.rs also needs the system WebKit/GTK libs.
+  tauri:
+    name: Tauri shell (cargo build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Tauri system dependencies (WebKit/GTK)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            patchelf \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - name: Build frontend (tauri.conf.json frontendDist = ../dist)
+        run: |
+          npm install
+          npm run build
+      - run: cargo build --manifest-path src-tauri/Cargo.toml --all-targets
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
   typescript:
     name: TypeScript binding (tsc)
     runs-on: ubuntu-latest

@@ -15,10 +15,15 @@ describe("bus-factory", () => {
 
   it("isTauriEnvironment flips when the sentinel global is set/cleared", () => {
     const g = globalThis as Record<string, unknown>;
-    expect(isTauriEnvironment()).toBe(false);
-    g.__TAURI_INTERNALS__ = {};
-    expect(isTauriEnvironment()).toBe(true);
-    delete g.__TAURI_INTERNALS__;
+    // try/finally so a failing assertion cannot leak the sentinel into later
+    // tests — cleanup always runs.
+    try {
+      expect(isTauriEnvironment()).toBe(false);
+      g.__TAURI_INTERNALS__ = {};
+      expect(isTauriEnvironment()).toBe(true);
+    } finally {
+      delete g.__TAURI_INTERNALS__;
+    }
     expect(isTauriEnvironment()).toBe(false);
   });
 

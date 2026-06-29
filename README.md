@@ -85,7 +85,8 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 
 编译与验证全部在 CI（`.github/workflows/ci.yml`）执行：
 
-- `rust`：`cargo build` + `cargo test`（`bindings/rust` 协议绑定 + `src-tauri` 桌面壳含 `airp_dispatch`/`airp:envelope` 桥）。
+- `rust`：`cargo build` + `cargo test`（`bindings/rust` 协议绑定，Linux runner）。
+- `tauri`：`cargo build` + `cargo test`（`src-tauri` 桌面壳含 `airp_dispatch`/`airp:envelope` 桥，含 WebKit/GTK 系统依赖 + 前端 `npm run build` 产 `dist`）。
 - `typescript`：`tsc --noEmit`。
 - `schema`：`ajv` 用 schema 校验 `examples/*.json` 与 `widgets/**/*.json`。
 - `ui`：`vue-tsc` + `vite build` + `vitest`（含 `TauriBus` / bus 工厂 / store patch / registry / standalone 用例）。

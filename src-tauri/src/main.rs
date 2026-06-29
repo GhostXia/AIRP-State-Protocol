@@ -8,7 +8,7 @@
 
 mod bus;
 
-use bus::{BusRelay, ENVELOPE_EVENT};
+use bus::BusRelay;
 use tauri::Manager;
 
 fn main() {
@@ -21,8 +21,6 @@ fn main() {
             // listens on that event (see src/protocol/tauri-bus.ts).
             let relay = app.state::<BusRelay>();
             relay.subscribe_downstream(app.handle().clone());
-            // Surface the event name once at startup for debugging; harmless.
-            log::info!("airp:envelope bridge ready, event = {}", ENVELOPE_EVENT);
             Ok(())
         })
         .run(tauri::generate_context!())

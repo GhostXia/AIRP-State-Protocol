@@ -120,7 +120,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - 改动文件：`src-tauri/{Cargo.toml,src/main.rs,src/bus.rs(新增)}`、`src/{App.vue,protocol/bus-factory.ts(新增),protocol/bus-factory.test.ts(新增)}`、`docs/{PLAN.md,README.md}`。
 - Rust 字段对齐已人工核对 `bindings/rust/src/lib.rs`：`AckMsg.ref_`、`IntentMsg.params: Option<Value>`（无 `capabilities`）、`PatchOp.value: Option<Value>`、`SetOrPatch`/`PatchOpKind` 枚举命名。Tauri v2 API 对齐官方文档（`#[tauri::command]` + `tauri::State` + `Emitter::emit` + `generate_handler!` + `Manager::state`）。
 - TS 类型对齐 `AgentBus` 接口；`bus-factory.test.ts` 3 个用例覆盖环境判定 + MockBus 路径 + sentinel 切换（Tauri 分支归运行时清单，不硬测避免 CI flaky）。
-- **CI 验证缺口（待后续 workflow 改动一并补）**：现有 `ci.yml` 的 rust job `working-directory: bindings/rust`，**不编译 `src-tauri`**——本次 Rust 桥改动暂无 CI job 覆盖。按 §5 规则应扩 workflow（加 src-tauri build/test job），但本批按用户指示「先不修改 workflow」，先登记于此，后续 workflow 收编时补 src-tauri 编译验证。
+- **CI 验证缺口已闭合**：新增 `ci.yml` 的 `tauri` job（`src-tauri` cargo build + test，含 WebKit/GTK 系统依赖 + 前端 `npm run build` 产 `dist`），覆盖本次 Rust 桥改动。CI 现有 5 个 job：`rust`（协议绑定）· `tauri`（桌面壳）· `typescript` · `schema` · `ui`。
 
 ## 3. 下一步任务（按建议顺序）
 
@@ -198,7 +198,7 @@ docs/SECURITY.md            责任边界
 docs/widget-authoring.md    widget 作者指南
 docs/AIRP-架构与状态协议-背景整理.md  决策/性能契约全背景
 docs/PLAN.md                本文件
-.github/workflows/          ci.yml（rust/ts/schema/ui）+ release-exe.yml（手动）
+.github/workflows/          ci.yml（rust/tauri/ts/schema/ui）+ release-exe.yml（手动）+ tauri-build.yml（手动）
 ```
 
 ## 7. 外部参考
