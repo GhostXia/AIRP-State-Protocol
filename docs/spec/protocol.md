@@ -121,6 +121,31 @@ GW  → state(patch, scope=session.chat, [+message])
 GW  → state(patch, scope=w-emotion, [replace /emotion 80])
 ```
 
+## 7. 传输绑定（Transport Bindings）
+
+协议**传输无关**（§0），同一套 Envelope 可走任意传输。下列是已落地的具体绑定；新增绑定不递增协议 `v`（Envelope 形状不变），仅约定如何映射到传输原语。
+
+### 7.1 Tauri IPC 绑定（桌面壳默认）
+
+UI（webview）与 Rust core（`src-tauri`）之间走 Tauri v2 的 IPC 原语。Rust core 再 onward 到 AIRP-Gateway（该段为运行时项，见 PLAN 任务 B）。
+
+| 方向 | Tauri 原语 | 名字 | wire shape |
+|------|-----------|------|-----------|
+| UI → core（上行） | command | `airp_dispatch` | `invoke("airp_dispatch", { env: Envelope })` → `Result<(), String>` |
+| core → UI（下行） | event | `airp:envelope` | `emit("airp:envelope", Envelope)`；UI 侧 `listen<Envelope>("airp:envelope", e => e.payload)` |
+
+约束：
+
+- **版本校验在边界**：`airp_dispatch` 收到 Envelope 后先校验 `env.v == PROTOCOL_VERSION`（当前 `1`），不符直接返回 `Err`，不进入 relay。Body 形状由 serde 反序列化强制。
+- **command 名 / event 名是契约的一部分**：`airp_dispatch` 与 `airp:envelope` 为本绑定固定标识，UI 侧 `TauriBus`（`src/protocol/tauri-bus.ts`）与 Rust 侧 `airp_dispatch` command + `BusRelay`（`src-tauri/src/bus.rs`）严格对齐。
+- **环境判定 + 按需加载**：UI 侧 `createBus()`（`src/protocol/bus-factory.ts`）按 `__TAURI_INTERNALS__` sentinel 选 `TauriBus`（shell）或 `MockBus`（web/vitest/`vite dev`）。`TauriBus` 与 `createTauriTransport` 走**动态 `import()`**，仅在 Tauri 分支加载——保证非 Tauri 环境（含其 bundle）不静态拉入 `@tauri-apps/api`，mock 路径零依赖。
+- **错误可见性**：UI 侧 `dispatch` 是边界调用，其 rejection（Rust `airp_dispatch` 返回 `Err` / IPC 传输失败 / 握手失败）不得成为未处理 promise rejection 而静默丢消息。UI 须 catch 并向用户暴露（`App.vue` 用响应式 `busError` 在模板展示）。`dispatch` 接口返回 `void | Promise<void>`（MockBus 同步、TauriBus 异步），归一为 promise 后再 `.catch`。
+- **当前 relay 是 mock**：`BusRelay` 不接 Gateway——ack 上行 envelope、`intent`→下行 `state` patch 回环。真连 Gateway 时替换 relay guts，`dispatch`/`subscribe_downstream` 表面不变（PLAN §2.5 未验证清单 B）。
+
+### 7.2 其他绑定（待落地）
+
+HTTP/SSE、WebSocket、stdio 等绑定尚未实现；落地时在此补对应映射表。Envelope 形状与 §1-§6 一致，仅传输原语不同。
+
 ## 8. 版本与兼容
 
 - 破坏性变更递增 `v`。

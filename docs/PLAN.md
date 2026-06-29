@@ -1,7 +1,7 @@
 # AIRP-State-Protocol 推进计划
 
 > 活文档（计划书）：愿景与未来展望、里程碑路线图、当前进度、下一步任务、开放决策与工作规则，方便随时接手。
-> 最后更新：2026-06-19
+> 最后更新：2026-06-29
 
 ## 0. 一句话定位
 
@@ -94,7 +94,7 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 
 **主要风险**
 
-- **真实 AgentBus 尚未闭环**（部分推进 2026-06-29）：`src/App.vue` 已改用 `createBus()` 工厂按环境选 `TauriBus`/`MockBus`；`src-tauri/src/bus.rs` 实现 `airp_dispatch` command + `airp:envelope` 事件桥（`BusRelay`，内置 mock relay）。**剩余**：`BusRelay` 当前是 mock（不接 Gateway），真连 Gateway 时替换 relay guts 即可（表面不变）；端到端 UI→core→Gateway→patch→UI 未运行时验证。
+- **真实 AgentBus 尚未闭环**（部分推进 2026-06-29）：`src/App.vue` 已改用 `createBus()` 工厂按环境选 `TauriBus`/`MockBus`；`src-tauri/src/bus.rs` 实现 `airp_dispatch` command + `airp:envelope` 事件桥（`BusRelay`，内置 mock relay）。**本轮（2026-06-29 迭代）收紧错误可见性**：`App.vue` 给 `createBus()` 与 `dispatch()` 加 try/catch，IPC/握手失败不再变成静默空壳或未处理拒绝，错误写入响应式 `busError` 并在模板展示；`bus-factory.ts` 把 `TauriBus` 改为按需动态 `import()`，web/vitest bundle 不再静态拉入 Tauri 传输（tree-shaking）。**剩余**：`BusRelay` 当前是 mock（不接 Gateway），真连 Gateway 时替换 relay guts 即可（表面不变）；端到端 UI→core→Gateway→patch→UI 未运行时验证。
 - **第三方 widget 安全边界仍偏提示层**：`registerEsmWidget` 默认 `import(source)`，授权后 ESM 跑在宿主 JS 上下文；`WidgetHost` 只限制传给 widget 的 `capabilities` 数组，不能阻止代码访问 DOM、全局对象或同源资源。开放真实远程 ESM 前，必须先落 D/E 的最小安全护栏。
 - **授权粒度过粗**：当前 `grant` 只按 `type` 记忆；若同一 `type` 的 manifest 后续替换 `source` 或 `version`，可能继承旧授权。需要把授权绑定到 `{type, version, source}` 或 source hash，manifest 变化后重新授权。
 - **协议承诺与 UI 实现有偏差**（已修复）：`src/state/store.ts` 的 `applyJsonPatch` 现已实现完整 RFC 6902（`add/remove/replace/move/copy/test`）；`App.vue` 已处理 `blueprint op:patch`（clone→applyJsonPatch→reassign）。剩余偏差：`test` op 非事务性（前置 op 已生效后才抛）。
@@ -121,6 +121,15 @@ CI jobs：`rust`(cargo build+test) · `typescript`(tsc) · `schema`(ajv 校验 e
 - Rust 字段对齐已人工核对 `bindings/rust/src/lib.rs`：`AckMsg.ref_`、`IntentMsg.params: Option<Value>`（无 `capabilities`）、`PatchOp.value: Option<Value>`、`SetOrPatch`/`PatchOpKind` 枚举命名。Tauri v2 API 对齐官方文档（`#[tauri::command]` + `tauri::State` + `Emitter::emit` + `generate_handler!` + `Manager::state`）。
 - TS 类型对齐 `AgentBus` 接口；`bus-factory.test.ts` 3 个用例覆盖环境判定 + MockBus 路径 + sentinel 切换（Tauri 分支归运行时清单，不硬测避免 CI flaky）。
 - **CI 验证缺口已闭合**：新增 `ci.yml` 的 `tauri` job（`src-tauri` cargo build + test，含 WebKit/GTK 系统依赖 + 前端 `npm run build` 产 `dist`），覆盖本次 Rust 桥改动。CI 现有 5 个 job：`rust`（协议绑定）· `tauri`（桌面壳）· `typescript` · `schema` · `ui`。
+
+**迭代审计（2026-06-29，同一 PR 续轮）**
+
+对已推送的 `feat/b-tauri-bus-bridge`（origin/main..HEAD 三个 commit）做只读复审，落地以下收紧（未合并、未推送前先补强）：
+
+- **P2 错误可见性**：`App.vue` 的 `onMounted` 异步 `await createBus()` 与 `void bus.dispatch(...)` 两处都可能产生未处理的 promise rejection——前者在 Tauri 壳内动态 import `@tauri-apps/api` / IPC 握手失败时，后者在 Rust `airp_dispatch` 返回 `Err`（版本不符 / serde / IPC 失败）时。改为 `try/catch` + `.catch()`，错误写入响应式 `busError` 并在模板顶部展示（不再静默空壳）。`dispatch` 接口返回 `void | Promise<void>`（MockBus 同步、TauriBus 异步），用 `Promise.resolve(...)` 归一后再 `.catch`，类型安全。
+- **P3 bundle 体积**：`bus-factory.ts` 原静态 `import { TauriBus, createTauriTransport }`，即便非 Tauri 环境（web/vitest）也会把 `tauri-bus.ts` 拉进 bundle。改为 Tauri 分支内动态 `import("./tauri-bus")`，让 bundler 把 Tauri 传输（含其 `@tauri-apps/api` 动态 import）拆成单独 chunk，只在壳内加载。`MockBus` 仍静态导入（零后端 fallback 每个非 Tauri 目标都要）。
+- **验证**：`vue-tsc --noEmit` 通过；`vitest run` 10 文件 40 用例全绿（含 `bus-factory` / `tauri-bus`）。Rust 侧本轮无改动，`tauri` job 范围不变。
+- **审计结论**：当前 PR 可继续迭代，方向是「收紧边界错误可见性 + bundle 体积」，非破坏性、不改 wire 契约。**未合并**（遵循 PR-only + 不直推 main 规则）。剩余运行时项（真连 Gateway 端到端）仍登记在 §2.5 清单 B。
 
 ## 3. 下一步任务（按建议顺序）
 
