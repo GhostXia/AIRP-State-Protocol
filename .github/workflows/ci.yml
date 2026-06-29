@@ -66,6 +66,8 @@ jobs:
         run: |
           npm install
           npm run build
+      - name: Generate app icons (required by tauri.conf.json bundle.icon)
+        run: npx tauri icon src-tauri/icon-source.png
       - run: cargo build --manifest-path src-tauri/Cargo.toml --all-targets
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
