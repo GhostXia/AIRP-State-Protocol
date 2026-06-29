@@ -40,14 +40,15 @@ Agent Runtime        (推理)
 # —— UI 应用（Tauri + Vue）——
 index.html  vite.config.ts  tsconfig.json  package.json
 src/
-  main.ts  App.vue                         # 挂载；订阅 AgentBus，分发 Blueprint/state
+  main.ts  App.vue                         # 挂载；订阅 AgentBus，分发 Blueprint/state；启动恢复同意
   protocol/types.ts                        # 复用 bindings/typescript 的协议类型
   protocol/bus.ts                          # AgentBus 接口 + MockBus（无后端可跑）
+  protocol/tauri-bus.ts  bus-factory.ts    # TauriBus（Tauri IPC）+ 按环境选 bus 的工厂
   state/store.ts                           # 按 scope 的响应式状态 + RFC6902 patch
-  registry/                                # Widget Registry：type → 组件加载器
+  registry/                                # Widget Registry：type → 组件加载器；consent 同意闸门 + sandbox 桥
   widgets/                                 # 第一方 widget 组件（ChatWidget/EmotionWidget）
   components/                              # BlueprintRenderer + WidgetHost
-src-tauri/                                 # Tauri 桌面壳（Rust，暂不打包 exe）
+src-tauri/                                 # Tauri 桌面壳（Rust）：airp_dispatch/airp:envelope 桥；tauri-build 产 .exe
 
 # —— State Protocol 契约 ——
 schema/airp-state-protocol.schema.json     # 真相：JSON Schema (draft 2020-12)
@@ -66,12 +67,13 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 ## 核心概念（速览）
 
 - **Envelope**：线上每条消息的信封（`v/id/ts/src/body`）。
-- **Body**：按 `kind` 判别的消息——下行 `blueprint`/`state`/`event`/`error`，上行 `intent`/`subscribe`/`unsubscribe`/`hello`/`ack`。
+- **Body**：按 `kind` 判别的消息——下行 `blueprint`/`state`/`manifest`/`event`/`error`，上行 `intent`/`subscribe`/`unsubscribe`/`hello`/`ack`。
 - **Blueprint**：由 RP 推导的声明式界面（layout + widgets + theme）。**UI 只渲染，不生成。**
 - **State/Patch**：状态以 RFC 6902 JSON Patch 增量同步，降低 Token。
 - **Capability**：widget/agent 声明、Gateway 强制的权限。
 - **AgentBus**：进程内 trait 契约；任何实现者可替换默认 Gateway。
 - **开放 Widget**：widget 系统对任何第三方开放——用自己的命名空间（`namespace.name`）发 manifest 即可接入，无需改协议核心。组件**不限框架**（`mount` 接口，任意技术实现）。见 [widget 作者指南](docs/widget-authoring.md)、[CONTRIBUTING](CONTRIBUTING.md)、责任边界 [SECURITY.md](docs/SECURITY.md)。
+- **同意闸门 + 沙箱**（宿主自守）：第三方 esm widget 须用户**授权后才加载**，且仅下发其声明的 capability；授权绑定 `{type, version, source}` 身份（换源/升版需重授权），并持久化到 `localStorage` 跨 reload 免重授。manifest 可声明 `entry.sandbox: true` 走 **opaque-origin iframe** 隔离（`allow-scripts` 无 `allow-same-origin`，碰不到宿主 DOM/全局/同源资源；`WidgetContext` 经 `postMessage` 桥接）。我们不审核插件代码——接入与否是用户的选择（[SECURITY.md](docs/SECURITY.md)）。
 
 详见 [规范](docs/spec/protocol.md)。
 
