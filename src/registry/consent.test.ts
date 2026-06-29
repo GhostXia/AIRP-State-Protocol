@@ -8,6 +8,8 @@ import {
   revoke,
   isGranted,
   clearGrants,
+  initGrants,
+  type ConsentStorage,
 } from "./consent";
 
 const esm: WidgetDef = {
@@ -24,6 +26,17 @@ const builtin: WidgetDef = {
   entry: { kind: "builtin" },
   capabilities: ["read:state"],
 };
+
+/** In-memory storage mock for persistence tests. */
+function mockStorage(): ConsentStorage & { dump(): Record<string, string> } {
+  const store = new Map<string, string>();
+  return {
+    getItem: (k) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k, v) => { store.set(k, v); },
+    removeItem: (k) => { store.delete(k); },
+    dump: () => Object.fromEntries(store),
+  };
+}
 
 describe("consent gate", () => {
   beforeEach(() => clearGrants());
@@ -64,5 +77,70 @@ describe("consent gate", () => {
     grant(esm);
     const bumped: WidgetDef = { ...esm, version: "1.1.0" };
     expect(canMount(bumped)).toBe(false);
+  });
+});
+
+describe("consent persistence", () => {
+  beforeEach(() => clearGrants());
+
+  it("grant/revoke/clear persist to storage", () => {
+    const s = mockStorage();
+    initGrants(s);
+    grant(esm);
+    expect(s.dump()["airp:consent-grants"]).toContain(esm.type);
+    revoke(esm);
+    expect(s.dump()["airp:consent-grants"]).toBe("[]");
+    grant(esm);
+    clearGrants();
+    expect(s.dump()["airp:consent-grants"]).toBe("[]");
+  });
+
+  it("initGrants restores previously saved grants across a reload", () => {
+    const s = mockStorage();
+    initGrants(s);
+    grant(esm);
+    expect(s.dump()["airp:consent-grants"]).toContain(esm.type);
+    // Simulate a reload: a fresh app instance would call initGrants again with
+    // the same storage. We cannot truly reset the in-memory Set without
+    // clearGrants (which would also wipe storage), so verify the round-trip
+    // directly: the persisted blob contains the grant key, and re-running
+    // initGrants on a fresh Set (simulated by a second mock reading the same
+    // persisted string) restores it.
+    const persisted = s.dump()["airp:consent-grants"];
+    expect(persisted).toContain(esm.type);
+    // A second storage backed by the same persisted string restores the grant
+    // into a clean consent state (clearGrants first to empty memory, then
+    // re-seed storage with the persisted blob before re-init).
+    clearGrants(); // empties memory + storage
+    s.setItem("airp:consent-grants", persisted); // restore the persisted blob
+    initGrants(s);
+    expect(isGranted(esm)).toBe(true);
+    expect(canMount(esm)).toBe(true);
+  });
+
+  it("without initGrants, consent is in-memory only (backward compatible)", () => {
+    // no initGrants call: grant works but does not touch storage
+    grant(esm);
+    expect(canMount(esm)).toBe(true);
+    // clearGrants with no storage is a no-op save (does not throw)
+    clearGrants();
+    expect(canMount(esm)).toBe(false);
+  });
+
+  it("corrupted storage data is ignored, starts fresh", () => {
+    const s = mockStorage();
+    s.setItem("airp:consent-grants", "{not json");
+    initGrants(s);
+    expect(isGranted(esm)).toBe(false);
+    // subsequent grants still work + persist
+    grant(esm);
+    expect(s.dump()["airp:consent-grants"]).toContain(esm.type);
+  });
+
+  it("non-array stored data is ignored", () => {
+    const s = mockStorage();
+    s.setItem("airp:consent-grants", JSON.stringify({ not: "an array" }));
+    initGrants(s);
+    expect(isGranted(esm)).toBe(false);
   });
 });
