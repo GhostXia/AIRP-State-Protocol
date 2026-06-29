@@ -485,6 +485,7 @@ mod tests {
                     entry: Some(WidgetEntry {
                         kind: EntryKind::Esm,
                         source: Some("https://cdn.example.com/status-pill.mjs".into()),
+                        sandbox: None,
                     }),
                     author: None,
                     homepage: None,
