@@ -164,8 +164,8 @@ export function sandboxBootstrap(source: string): string {
 (function(){
   var SRC = ${safeSource};
   function send(msg){ parent.postMessage(msg, "*"); }
-  // Buffer the latest state: a `state` message can arrive before the widget's
-  // async import() has registered its onState callback. We keep the last value
+  // Buffer the latest state: a state message can arrive before the widget's
+  // async import has registered its onState callback. We keep the last value
   // and replay it on registration, so the first state slice is never dropped.
   var lastState; var hasState = false; var stateCb = null;
   // WidgetContext proxy: the widget calls these; we translate to messages.
