@@ -91,9 +91,9 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 - `tauri`：`cargo build` + `cargo test`（`src-tauri` 桌面壳含 `airp_dispatch`/`airp:envelope` 桥，含 WebKit/GTK 系统依赖 + 前端 `npm run build` 产 `dist`）。
 - `typescript`：`tsc --noEmit`。
 - `schema`：`ajv` 用 schema 校验 `examples/*.json` 与 `widgets/**/*.json`。
-- `ui`：`vue-tsc` + `vite build` + `vitest`（含 `TauriBus` / bus 工厂 / store patch / registry / standalone 用例）。
+- `ui`：`vue-tsc` + `vite build` + `vitest`（含 `TauriBus` / bus 工厂 / store patch / registry / standalone / **边界 runtime guard** / **协议闭环 e2e smoke** 用例）。
 
-> 本地不需安装工具链。UI 桌面壳的 `airp_dispatch` command + `airp:envelope` 事件桥已落地（`src-tauri/src/bus.rs`），当前 relay 是 mock，真连 AIRP-Gateway 为运行时验证项。手动 `tauri-build.yml` 产 Windows `.exe`。
+> 本地不需安装工具链。UI 桌面壳的 `airp_dispatch` command + `airp:envelope` 事件桥已落地（`src-tauri/src/bus.rs`），当前 relay 是 mock，真连 AIRP-Gateway 为运行时验证项。手动 `tauri-build.yml` 产 Windows `.exe`。下行 Envelope 在进 registry/store 前经 `src/protocol/guard.ts` 结构骨架校验（非法回 `error` + 记 `busError`，fail-closed，不引 ajv）。
 
 ## 状态
 
