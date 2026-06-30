@@ -57,6 +57,7 @@ bindings/rust/                             # Rust 类型 + AgentBus trait（给 
 bindings/typescript/                       # TS 类型 + 类型守卫（UI 复用）
 widgets/core/                              # 第一方 widget manifest（chat/memory/emotion/...）
 docs/spec/protocol.md                      # 规范 v1
+docs/extension-points.md                   # 扩展点/自定义点面板（所有可替换接口集中列出）
 docs/widget-authoring.md                   # widget 作者指南（第三方接入）
 docs/AIRP-架构与状态协议-背景整理.md         # 决策与性能契约背景
 examples/                                  # 可被 schema 校验的 Envelope 示例
@@ -75,7 +76,7 @@ CONTRIBUTING.md                            # 贡献指南（含「如何加 widg
 - **开放 Widget**：widget 系统对任何第三方开放——用自己的命名空间（`namespace.name`）发 manifest 即可接入，无需改协议核心。组件**不限框架**（`mount` 接口，任意技术实现）。见 [widget 作者指南](docs/widget-authoring.md)、[CONTRIBUTING](CONTRIBUTING.md)、责任边界 [SECURITY.md](docs/SECURITY.md)。
 - **同意闸门 + 沙箱**（宿主自守）：第三方 esm widget 须用户**授权后才加载**，且仅下发其声明的 capability；授权绑定 `{type, version, source}` 身份（换源/升版需重授权），并持久化到 `localStorage` 跨 reload 免重授。manifest 可声明 `entry.sandbox: true` 走 **opaque-origin iframe** 隔离（`allow-scripts` 无 `allow-same-origin`，碰不到宿主 DOM/全局/同源资源；`WidgetContext` 经 `postMessage` 桥接）。我们不审核插件代码——接入与否是用户的选择（[SECURITY.md](docs/SECURITY.md)）。
 
-详见 [规范](docs/spec/protocol.md)。
+详见 [规范](docs/spec/protocol.md)。**所有可自定义/可替换的接口面（写 widget、接自己的后端、覆盖 esm 导入、沙箱、同意后端、自定义界面、只用协议契约…）集中在 [扩展点面板](docs/extension-points.md)。**
 
 ## 关键约束
 
