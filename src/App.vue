@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, shallowRef, ref } from "vue";
 import type { Blueprint, Envelope, Json } from "./protocol/types";
 import type { AgentBus } from "./protocol/bus";
 import { createBus } from "./protocol/bus-factory";
+import { validateEnvelope } from "./protocol/guard";
 import { stateStore, setState, patchState, applyJsonPatch } from "./state/store";
 import { registerBuiltins, applyManifestMessage } from "./registry";
 import BlueprintRenderer from "./components/BlueprintRenderer.vue";
@@ -24,6 +25,19 @@ let unsubscribe: (() => void) | null = null;
 let disposed = false;
 
 function onEnvelope(e: Envelope): void {
+  // Boundary guard: a real IPC/Gateway feed is untyped JSON. Validate the wire
+  // shape BEFORE letting it touch the registry/store — a malformed envelope
+  // (missing scope, a patch that isn't an array, an unknown body kind) would
+  // otherwise corrupt state silently. Rejected envelopes are surfaced as an
+  // `error` upstream and recorded in `busError` so the user sees the boundary
+  // failure instead of an empty/half-applied UI. See docs/PLAN.md §2.6 #4.
+  const guard = validateEnvelope(e);
+  if (!guard.ok) {
+    console.error("[App] rejected envelope:", guard.error, e);
+    busError.value = `envelope: ${guard.error}`;
+    reportError(e, guard.error);
+    return;
+  }
   const body = e.body;
   // Manifests are processed BEFORE blueprint: the renderer resolves a widget
   // type once at mount, so a third-party esm widget must be registered before
@@ -43,6 +57,27 @@ function onEnvelope(e: Envelope): void {
     if (body.op === "set") setState(body.scope, body.state ?? null);
     else if (body.op === "patch" && body.patch) patchState(body.scope, body.patch);
   }
+}
+
+/** Report a rejected envelope upstream as an `error` body (best-effort). */
+function reportError(rejected: Envelope, reason: string): void {
+  if (!bus) return;
+  Promise.resolve(
+    bus.dispatch({
+      v: 1,
+      id: `err-${Date.now()}`,
+      ts: Date.now(),
+      src: "ui",
+      body: {
+        kind: "error",
+        code: "ENVELOPE_INVALID",
+        message: reason,
+        detail: { ref: rejected.id },
+      },
+    }),
+  ).catch((err: unknown) => {
+    console.error("[App] reportError dispatch failed:", err);
+  });
 }
 
 // Surfaced in the template so a backend failure isn't a silent empty shell.

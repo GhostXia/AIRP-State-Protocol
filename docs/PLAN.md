@@ -1,7 +1,7 @@
 # AIRP-State-Protocol 推进计划
 
 > 活文档（计划书）：愿景与未来展望、里程碑路线图、当前进度、下一步任务、开放决策与工作规则，方便随时接手。
-> 最后更新：2026-06-29
+> 最后更新：2026-06-30
 
 ## 0. 一句话定位
 
@@ -72,6 +72,7 @@
 | #27 | feat(B)：Rust `airp_dispatch`/`airp:envelope` 桥（`BusRelay` mock）+ App bus 工厂（TauriBus/MockBus）+ `tauri` CI job + `package-lock.json` |
 | #28 | feat(D)：不可信 esm widget 的 iframe 沙箱桥（opaque-origin，postMessage）；合并后修 `ready`/初始 `state` 两处竞态 + 回归测试 |
 | #29 | feat(E)：consent 授权持久化到 `localStorage`（跨 reload，`initGrants`） |
+| #31 | feat：**边界 runtime guard + 协议闭环 e2e smoke**（`src/protocol/guard.ts`：Envelope 进 registry/store 前结构骨架校验，非法回 `error` + 记 `busError`，不引 ajv；`e2e-smoke.test.ts` 覆盖 manifest→blueprint→intent→state patch 回流全链路 + guard 拒非法 + blueprint op:patch 漂移修复）— 落地审计 §2.6 第 4 条建议 |
 
 CI jobs（5 个）：`rust`(协议绑定 cargo build+test) · `tauri`(`src-tauri` 桌面壳 cargo build+test + 前端 `npm run build`) · `typescript`(tsc) · `schema`(ajv 校验 examples + widget manifests) · `ui`(vue-tsc + vite build + vitest)。手动 workflow：`release-exe.yml`（CLI gnu）+ `tauri-build.yml`（windows，已验证产出 Windows `.exe` + NSIS 安装包 artifact）。
 
@@ -86,7 +87,8 @@ CI jobs（5 个）：`rust`(协议绑定 cargo build+test) · `tauri`(`src-tauri
 - [x] **esm 动态加载 + manifest 线上下发（任务 A）**：`manifest` 下行消息 + manifest 注册表 + `setDefaultEsmImporter` + App 接线（manifest 先于 blueprint）+ 端到端 esm demo（`acme.status-pill`）。
 - [x] **第一方 widget 组件**：chat/emotion/memory/inventory/quest/map/card + clock(module)。
 - [x] **独立用法示例**：`examples/standalone/`（protocol-only / custom-bus / standalone-widget），CI 验证。
-- [x] 单测：store(patch) + registry + manifests + builtins + standalone。
+- [x] **边界 runtime guard + 协议闭环 e2e smoke（#31）**：`src/protocol/guard.ts` 在 IPC/Gateway→UI 边界校验 Envelope 结构骨架，非法回 `error` + 记 `busError`（不引 ajv，fail-closed）；`e2e-smoke.test.ts` 覆盖 manifest→blueprint→intent→state patch 回流全链路。落地审计 §2.6 第 4 条建议。
+- [x] 单测：store(patch) + registry + manifests + builtins + standalone + guard + e2e smoke。
 
 ## 2.5 工作策略与未验证清单
 
@@ -99,6 +101,16 @@ CI jobs（5 个）：`rust`(协议绑定 cargo build+test) · `tauri`(`src-tauri
 - [ ] **esm 第三方真加载**：从真实远程 `source` `import()` 一个外部 widget 并渲染（当前仅本地映射 demo + 注入 importer 单测）。
 - [ ] **D**：iframe sandbox 内 widget 无法触碰宿主 DOM/秘密。（基础代码已合并 #28；2026-06-29 修复 `ready` 抢跑丢失 + 初始 `state` 在 widget `import()` 前到达被丢两处竞态，加回归测试。真 iframe 远程 `import()` 行为仍待浏览器验证）
 - [ ] **E**：未授权 capability 调用被拒；启用前同意 UI。（同意闸门 + 身份绑定 + 持久化已合并 #21/#23/#29；UI 闸门已落地。Gateway 侧 capability 真实强制仍待运行时）
+
+**追加验证记录（2026-06-30，边界 runtime guard + 协议闭环 e2e）**
+
+落地审计 §2.6 第 4 条建议（"补 runtime 校验与端到端测试"）。改动：`src/protocol/guard.ts`（新增，266 行）+ `guard.test.ts`（35 例）+ `src/protocol/e2e-smoke.test.ts`（新增，3 例：manifest→blueprint→intent→state patch 回流 / guard 拒非法 / blueprint op:patch 漂移修复）+ `src/App.vue`（`onEnvelope` 入口接入 guard，非法回 `error` envelope + 记 `busError`）。
+
+- **设计取舍**：guard 是轻量结构骨架校验（Envelope `v/id/ts/src` 必填、`body.kind` 在已知集合、按 kind 校验各字段存在性与类型、RFC6902 patch op 形状、capability 在已知集），**不引 ajv**——避免给 UI bundle 加重 runtime 依赖、避免与 `schema/`（真相）重复。完整 schema 校验仍是 CI `schema` job 的活；guard 只管"不让非法 envelope 静默半写进 registry/store"。fail-closed：无法确证为良构的一律拒。
+- **边界位置**：guard 只挂在 UI 的下行入口（`App.vue` `onEnvelope`），即 IPC/Gateway → UI 的边界。`bindings/typescript` 保持纯类型包不动（审计 §2.6 第 5 条"发布前明确纯类型包策略"未变）。
+- **回流处理**：被拒 envelope 回 `error` body（`code: ENVELOPE_INVALID`，`detail.ref` 指被拒 id）上行给 Gateway，并在 UI 顶部 `busError` banner 展示——不再静默错乱或抛异常到 Vue。
+- **e2e smoke** 不走 Vue 渲染（拉渲染开销大且组件层已由 `App.manifest.test.ts` 覆盖），聚焦协议契约闭环：用真 `MockBus` + 同一个 `validateEnvelope` + 真 reactive store，驱动 App.vue 同款 dispatch。覆盖审计点名的"manifest 下发→blueprint 渲染→intent 上行→state patch 回流"全链路，外加 blueprint `op:patch` 漂移修复路径。
+- **本地验证**：`vue-tsc --noEmit` 通过；`vitest run` 13 文件 95 用例全绿（新增 38 例：guard 35 + e2e 3）；`bindings/typescript` `tsc --noEmit` 通过（纯类型包未受影响）。本轮无 Rust 改动，`tauri`/`rust` job 范围不变。**未合并**（遵循 PR-only 规则）。
 
 ## 2.6 审计快照（2026-06-19）
 
@@ -118,7 +130,7 @@ CI jobs（5 个）：`rust`(协议绑定 cargo build+test) · `tauri`(`src-tauri
 1. **v0.2 先闭环真实链路**：App bus 工厂按环境选择 `TauriBus`/`MockBus`；Rust 核实现 `airp_dispatch` 与 `airp:envelope`；跑通 UI -> Gateway -> state patch -> UI 的最小 RP 会话。
 2. **v0.3 前收紧安全模型**：授权绑定 `type + version + source/hash`；manifest 变更触发重新授权；Gateway 侧强制 capability；iframe sandbox 作为不可信 widget 的默认推荐路径。
 3. **协议语义尽快收敛**：要么完整实现 RFC 6902，要么把 schema/文档降级为当前支持的 patch 子集；补上 `blueprint patch` 或从 v1 表面移除。
-4. **补 runtime 校验与端到端测试**：在 App/Tauri/Gateway 边界加 Envelope 校验；增加一条从 manifest 下发、blueprint 渲染、intent 上行、state patch 回流的 e2e/smoke。
+4. **补 runtime 校验与端到端测试**（已落地 #31）：在 App/Tauri/Gateway 边界加 Envelope 校验；增加一条从 manifest 下发、blueprint 渲染、intent 上行、state patch 回流的 e2e/smoke。
 5. **发布前做可复现构建**：应用层提交 lockfile，CI 改 `npm ci`；`bindings/typescript` 发布前产出 `.d.ts`/JS 或明确纯类型包策略；Rust crate 发布前固定最小支持版本与 cargo publish 检查。
 
 **本次本地验证记录**
@@ -221,6 +233,8 @@ schema/                     协议真相（JSON Schema）+ widget-manifest schem
 bindings/rust|typescript/   协议绑定（Rust 类型+AgentBus trait / TS 类型）
 widgets/core/*.json         第一方 widget manifest
 src/                        UI 应用（main/App/protocol/state/registry/widgets/components）
+  protocol/guard.ts                    边界 runtime guard（Envelope 结构校验，进 registry/store 前闸门）
+  protocol/e2e-smoke.test.ts           协议闭环 e2e：manifest→blueprint→intent→state patch 回流
 src-tauri/                  Tauri 桌面壳（暂不打包 exe）
 docs/spec/protocol.md       协议规范 v1
 docs/SECURITY.md            责任边界
