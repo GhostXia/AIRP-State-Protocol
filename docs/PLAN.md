@@ -235,8 +235,9 @@ widgets/core/*.json         第一方 widget manifest
 src/                        UI 应用（main/App/protocol/state/registry/widgets/components）
   protocol/guard.ts                    边界 runtime guard（Envelope 结构校验，进 registry/store 前闸门）
   protocol/e2e-smoke.test.ts           协议闭环 e2e：manifest→blueprint→intent→state patch 回流
-src-tauri/                  Tauri 桌面壳（暂不打包 exe）
+src-tauri/                  Tauri 桌面壳（airp_dispatch/airp:envelope 桥；tauri-build 产 exe）
 docs/spec/protocol.md       协议规范 v1
+docs/extension-points.md    扩展点/自定义点面板（所有可替换接口集中列出）
 docs/SECURITY.md            责任边界
 docs/widget-authoring.md    widget 作者指南
 docs/AIRP-架构与状态协议-背景整理.md  决策/性能契约全背景
